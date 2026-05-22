@@ -3287,7 +3287,7 @@ TYPE = (zamn and game.Players.LocalPlayer.Chatted or game.TextChatService.Messag
 			Remind("Blacklist/whitelist/gearwhitelist etc announcements disabled.")
 	end
 
-    if string.sub(msg, 1, #prefix + 8)  == prefix..'clearall' then
+    if string.sub(msg, 1, #prefix + 6)  == prefix..'bclear' then
 			clearall()
 	end
 
