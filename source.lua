@@ -167,7 +167,8 @@ local IYchecks = {
 local function Speak(msg)
     if IYchecks.legacyChat then
        -- print("test")
-		game.ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(msg, "All")
+		game.ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(msg, "All") 
+		-- \n\n\n is blocked in Chat (and won't show), but the h message will still work, so announcements won't show your username :D
     else 
        -- print('test 2')
 		game:GetService("TextChatService").TextChannels.RBXGeneral:SendAsync(msg)
@@ -19212,6 +19213,11 @@ function clearall()
                			if part:IsA("BasePart") then
                    			Delete(part, deleteRemote)
                			end
+						if mainbar_stuff.watermark_kl then
+							Speak("h \n\n\n\n\n ["..getgenv().scriptname.."]: Server Reset. \n\n\n\n\n")
+						else
+							Speak("h \n\n\n\n\n Server Reset. \n\n\n\n\n")
+						end
            			end
        			else
            			warn("Delete remote not found in tool for player " .. player.Name)
