@@ -19,13 +19,4 @@ getgenv().theprefix = "."
 -- Autorun commands (run when script loads)
 getgenv().autoruncmds = {".antifreeze", ".antijail", ".nkill"}
 
--- Run these commands when specific players join
-getgenv().run_on_sight = {
-    ["ScriptingProgrammer"] = {".lua print('da owner joined so coolz')"},
-    ["YT_MATHEUSMODZ5"] = {".lua print('matheus joined')"}
-}
-
--- Load the main script
 loadstring(game:HttpGet("https://raw.githubusercontent.com/NewMatheusDC/kohlslite/refs/heads/main/source.lua"))()
-
--- More settings can be found in the script's source itself.
