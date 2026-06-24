@@ -7,7 +7,7 @@ ___  __    ________  ___  ___  ___       ________  ___       ___  _________  ___
    \ \__\\ \__\ \_______\ \__\ \__\ \_______\____\_\  \ \_______\ \__\   \ \__\ \ \_______\
     \|__| \|__|\|_______|\|__|\|__|\|_______|\_________\|_______|\|__|    \|__|  \|_______|
 
-A script for agspureiam's game Kohls Admin House. Supported for KAH NBC, BC and NP (sort of).
+A script for agspureiam's game Kohls Admin House. Supported for X (sort of).
 Created by ScriptingProgrammer (Roblox) / ts2021 (Discord) / S-PScripts (GitHub)
 Modified by YT_MATHEUSMODZ5
 View the source here: https://github.com/NewMatheusDC/kohlslite
