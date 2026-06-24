@@ -1,5 +1,5 @@
 getgenv().scriptname = "KohlsLite"
-getgenv().klversion = "0.5"
+getgenv().klversion = "0.6"
 
 -- Game check (X 😏 only)
 local targetGameId = 14747334292
@@ -193,7 +193,6 @@ local admin_thread = nil
 local loopgrab_enabled = false
 local loopgrab_thread = nil
 
--- Explode state
 local exploding = false
 local explode_thread = nil
 
@@ -402,7 +401,7 @@ local function nKill()
     Notify("Removed "..count.." TouchInterests from Obby.")
 end
 
--- Anti loops (instant, one-shot)
+-- Anti-jail
 task.spawn(function()
     local lastJailed = false
     while true do
@@ -424,6 +423,7 @@ task.spawn(function()
     end
 end)
 
+-- Anti-freeze (checks anchored parts)
 task.spawn(function()
     local lastFrozen = false
     while true do
@@ -455,14 +455,15 @@ task.spawn(function()
     end
 end)
 
+-- Anti-punish (checks Lighting folder)
 task.spawn(function()
     local lastPunished = false
     while true do
         task.wait(0.05)
         if antipunish_enabled then
-            local player = game.Players.LocalPlayer
-            local char = player.Character
-            if not char or not char.Parent or char.Parent ~= workspace then
+            local name = game.Players.LocalPlayer.Name
+            local punished = game.Lighting:FindFirstChild(name)
+            if punished then
                 if not lastPunished then
                     SendCommand("unpunish me")
                     lastPunished = true
@@ -476,6 +477,7 @@ task.spawn(function()
     end
 end)
 
+-- Anti-kill (auto respawn)
 task.spawn(function()
     while true do
         task.wait(0.05)
@@ -568,7 +570,7 @@ local function loopgrabLoop()
     end
 end
 
--- Lay command (100ms)
+-- Lay command (400ms)
 local function layCommand(target)
     local plr = findPlayer(target)
     if not plr then Notify("Player not found.") return end
@@ -576,7 +578,7 @@ local function layCommand(target)
     local cmds = {"seizure "..name, "reset "..name, "freeze "..name, "thaw "..name, "name "..name.." "..name, "sit "..name}
     for _, cmd in ipairs(cmds) do
         SendCommand(cmd)
-        task.wait(0.1)
+        task.wait(0.4)
     end
 end
 
@@ -856,7 +858,7 @@ local function handleCommand(msg)
         print(".softlock <target> - punish when character exists")
         print(".unsoftlock - disable softlock")
         print(".makechat <target> <msg> - hint with target name")
-        print(".lay <target> - seizure, reset, freeze, thaw, name, sit")
+        print(".lay <target> - seizure, reset, freeze, thaw, name, sit (400ms)")
         print(".regen - click regen once")
         print(".loopregen - click regen every 1ms")
         print(".stopregen - stop loopregen")
@@ -865,7 +867,7 @@ local function handleCommand(msg)
         print(".unantijail - disable antijail")
         print(".antifreeze - auto unfreeze")
         print(".unantifreeze - disable antifreeze")
-        print(".antipunish - auto unpunish when punished")
+        print(".antipunish - auto unpunish when punished (checks Lighting)")
         print(".unantipunish - disable antipunish")
         print(".antikill - auto respawn when killed")
         print(".unantikill - disable antikill")
@@ -894,11 +896,12 @@ game.TextChatService.MessageReceived:Connect(function(tbl)
     end
 end)
 
--- CmdBar UI
+-- CmdBar UI ()
 local function createCmdBar()
     local gui = Instance.new("ScreenGui")
     gui.Name = "CmdBar"
     gui.ResetOnSpawn = false
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     gui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
     local frame = Instance.new("Frame")
@@ -906,6 +909,7 @@ local function createCmdBar()
     frame.Position = UDim2.new(1, -40, 1, -45)
     frame.BackgroundTransparency = 1
     frame.BorderSizePixel = 0
+    frame.ZIndex = 10
     frame.Parent = gui
 
     local box = Instance.new("TextBox")
@@ -918,6 +922,7 @@ local function createCmdBar()
     box.TextXAlignment = Enum.TextXAlignment.Left
     box.TextYAlignment = Enum.TextYAlignment.Top
     box.ClearTextOnFocus = false
+    box.ZIndex = 10
     box.Parent = frame
 
     box.FocusLost:Connect(function(enter)
@@ -977,3 +982,4 @@ end)
 Notify("KohlsLite loaded. Use .help")
 print("KohlsLite ready. Prefix: "..prefix)
 print("Config folder: "..folderName)
+-- I hope they take full advantage of this script in atprog.
