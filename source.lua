@@ -322,7 +322,7 @@ local function nKill()
     Notify("Removed "..count.." TouchInterests from Obby.")
 end
 
--- Anti-jail (instant)
+-- Anti-jail 
 task.spawn(function()
     local lastJailed = false
     while true do
@@ -344,7 +344,7 @@ task.spawn(function()
     end
 end)
 
--- Anti-freeze (instant)
+-- Anti-freeze 
 task.spawn(function()
     local lastFrozen = false
     while true do
@@ -376,7 +376,7 @@ task.spawn(function()
     end
 end)
 
--- Anti-punish (instant)
+-- Anti-punish 
 task.spawn(function()
     local lastPunished = false
     while true do
@@ -678,7 +678,7 @@ local function handleCommand(msg)
         end
         loopgrab_enabled = true
         loopgrab_thread = task.spawn(loopgrabLoop)
-        Notify("Loopgrab started (instant).")
+        Notify("Loopgrab started .")
         return
     end
 
@@ -725,11 +725,11 @@ local function handleCommand(msg)
         print(".loopregen - click regen every 0.5s")
         print(".stopregen - stop loopregen")
         print(".nkill - remove all TouchInterests from Obby")
-        print(".antijail - auto unjail (instant)")
+        print(".antijail - auto unjail")
         print(".unantijail - disable antijail")
-        print(".antifreeze - auto unfreeze (instant)")
+        print(".antifreeze - auto unfreeze")
         print(".unantifreeze - disable antifreeze")
-        print(".antipunish - auto unpunish when punished (instant)")
+        print(".antipunish - auto unpunish when punished")
         print(".unantipunish - disable antipunish")
         print(".admin - loop to get admin (regen if no pad)")
         print(".unadmin - stop admin loop")
@@ -783,7 +783,7 @@ local function createCmdBar()
     box.FocusLost:Connect(function(enter)
         if enter then
             local txt = box.Text
-            if txt and txt ~= "" and txt ~= "]" then
+            if txt and txt ~= "" and txt ~= "" then
                 if string.sub(txt, 1, 1) == prefix then
                     handleCommand(txt)
                 else
