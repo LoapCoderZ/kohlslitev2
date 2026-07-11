@@ -1,3 +1,4 @@
+-- For 77790193039862 (Game-ID)
 local RADIUS = 30.5
 local COOLDOWN = 0.01
 
