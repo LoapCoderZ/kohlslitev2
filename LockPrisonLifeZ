@@ -7,7 +7,7 @@ local Window = Rayfield:CreateWindow({
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "AimZ",
-        FileName = "Aim"
+        FileName = "AimZ"
     },
     ShowText = "Rayfield",
     Theme = "Default"
