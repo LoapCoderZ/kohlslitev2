@@ -225,7 +225,6 @@ FiltersTab:CreateToggle({
 local TargetTab = Window:CreateTab("Target", 4483362458)
 
 local teamNames = {"Guards", "Inmates", "Criminals"}
-
 for _, teamName in ipairs(teamNames) do
     TargetTab:CreateToggle({
         Name = teamName,
