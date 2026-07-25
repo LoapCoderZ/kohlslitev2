@@ -1,25 +1,4 @@
-getgenv().SecureMode = true
-
-local success, Rayfield = pcall(function()
-    return loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-end)
-
-if not success or not Rayfield then
-    warn("Failed to load Rayfield.")
-    return
-end
-
-local folderName = "AimZ"
-local fileName = "Aim"
-
-if not isfolder(folderName) then
-    makefolder(folderName)
-end
-
-local configPath = folderName .. "/" .. fileName .. ".json"
-if not isfile(configPath) then
-    writefile(configPath, game:GetService("HttpService"):JSONEncode({}))
-end
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
 local Window = Rayfield:CreateWindow({
     Name = "Bad",
@@ -27,8 +6,8 @@ local Window = Rayfield:CreateWindow({
     LoadingSubtitle = "Are you a furry?",
     ConfigurationSaving = {
         Enabled = true,
-        FolderName = folderName,
-        FileName = fileName
+        FolderName = "AimZ",
+        FileName = "Aim"
     },
     ShowText = "Rayfield",
     Theme = "Default"
@@ -54,9 +33,8 @@ local Settings = {
     IgnoreFriends = false
 }
 
-local Whitelist = {
-    Users = {}
-}
+local Whitelist = {}
+local WhitelistIds = {}
 
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Color = Color3.fromRGB(0, 255, 255)
@@ -72,7 +50,6 @@ local AimTab = Window:CreateTab("Aimbot", 4483362458)
 local Toggle = AimTab:CreateToggle({
     Name = "Enable Aimbot",
     CurrentValue = false,
-    Flag = "AimbotEnabled",
     Callback = function(Value)
         Settings.Enabled = Value
     end
@@ -83,7 +60,6 @@ AimTab:CreateSlider({
     Range = {50, 500},
     Increment = 10,
     CurrentValue = 150,
-    Flag = "FOVRadius",
     Callback = function(Value)
         Settings.FOV = Value
         if FOVCircle then FOVCircle.Radius = Value end
@@ -95,7 +71,6 @@ AimTab:CreateSlider({
     Range = {50, 1000},
     Increment = 10,
     CurrentValue = 200,
-    Flag = "MaxDistance",
     Callback = function(Value)
         Settings.MaxDistance = Value
     end
@@ -106,7 +81,6 @@ AimTab:CreateSlider({
     Range = {0.05, 1},
     Increment = 0.05,
     CurrentValue = 0.2,
-    Flag = "Smoothness",
     Callback = function(Value)
         Settings.Smoothness = Value
     end
@@ -116,7 +90,6 @@ AimTab:CreateDropdown({
     Name = "Target Priority",
     Options = {"Closest to Center", "Lowest Health", "Highest Health"},
     CurrentOption = "Closest to Center",
-    Flag = "TargetPriority",
     Callback = function(Option)
         Settings.Priority = Option
     end
@@ -127,7 +100,6 @@ local FiltersTab = Window:CreateTab("Filters", 4483362458)
 FiltersTab:CreateToggle({
     Name = "Wall Check",
     CurrentValue = false,
-    Flag = "WallCheck",
     Callback = function(Value)
         Settings.WallCheck = Value
     end
@@ -136,7 +108,6 @@ FiltersTab:CreateToggle({
 FiltersTab:CreateToggle({
     Name = "Team Check",
     CurrentValue = false,
-    Flag = "TeamCheck",
     Callback = function(Value)
         Settings.TeamCheck = Value
     end
@@ -145,7 +116,6 @@ FiltersTab:CreateToggle({
 FiltersTab:CreateToggle({
     Name = "Inmates Attribute Filter",
     CurrentValue = true,
-    Flag = "InmatesFilter",
     Callback = function(Value)
         Settings.InmatesFilter = Value
     end
@@ -154,7 +124,6 @@ FiltersTab:CreateToggle({
 FiltersTab:CreateToggle({
     Name = "Ignore ForceField",
     CurrentValue = false,
-    Flag = "IgnoreForceField",
     Callback = function(Value)
         Settings.IgnoreForceField = Value
     end
@@ -163,18 +132,130 @@ FiltersTab:CreateToggle({
 FiltersTab:CreateToggle({
     Name = "Ignore Friends",
     CurrentValue = false,
-    Flag = "IgnoreFriends",
     Callback = function(Value)
         Settings.IgnoreFriends = Value
     end
 })
+
+local WhitelistTab = Window:CreateTab("Whitelist", 4483362458)
+
+local function RefreshWhitelistDisplay()
+    local playerList = {}
+    for i, userId in ipairs(WhitelistIds) do
+        local player = Players:FindFirstChild(tostring(userId))
+        if player then
+            table.insert(playerList, string.format("%s (%d)", player.DisplayName, userId))
+        else
+            table.insert(playerList, string.format("User (%d)", userId))
+        end
+    end
+    local displayText = #playerList > 0 and table.concat(playerList, ", ") or "Empty"
+    print(string.format("Whitelist [%d]: %s", #WhitelistIds, displayText))
+end
+
+local function IsInWhitelist(player)
+    local userId = player.UserId
+    for i = 1, #WhitelistIds do
+        if WhitelistIds[i] == userId then
+            return true
+        end
+    end
+    return false
+end
+
+WhitelistTab:CreateInput({
+    Name = "Add Player to Whitelist",
+    PlaceholderText = "Display Name or Username",
+    Callback = function(Input)
+        if Input and Input ~= "" then
+            local found = false
+            for _, player in pairs(Players:GetPlayers()) do
+                if player.Name:lower() == Input:lower() or player.DisplayName:lower() == Input:lower() then
+                    local userId = player.UserId
+                    if not IsInWhitelist(player) then
+                        table.insert(WhitelistIds, userId)
+                        RefreshWhitelistDisplay()
+                        Rayfield:Notify({
+                            Title = "Whitelist",
+                            Content = string.format("Added %s", player.DisplayName),
+                            Duration = 3
+                        })
+                    else
+                        Rayfield:Notify({
+                            Title = "Whitelist",
+                            Content = "Player already in whitelist",
+                            Duration = 2
+                        })
+                    end
+                    found = true
+                    break
+                end
+            end
+            if not found then
+                Rayfield:Notify({
+                    Title = "Whitelist",
+                    Content = "Player not found in server",
+                    Duration = 2
+                })
+            end
+        end
+    end
+})
+
+WhitelistTab:CreateButton({
+    Name = "Remove All (Double-Click to Confirm)",
+    Callback = function()
+        if not removeAllCooldown then
+            removeAllCooldown = true
+            Rayfield:Notify({
+                Title = "Remove All",
+                Content = "Click again within 5 seconds to confirm.",
+                Duration = 5
+            })
+            removeAllTimer = tick()
+            task.wait(5)
+            if removeAllTimer and (tick() - removeAllTimer) >= 5 then
+                removeAllCooldown = false
+                removeAllTimer = nil
+            end
+        else
+            if removeAllTimer and (tick() - removeAllTimer) < 5 then
+                WhitelistIds = {}
+                RefreshWhitelistDisplay()
+                Rayfield:Notify({
+                    Title = "Whitelist",
+                    Content = "All players removed from whitelist",
+                    Duration = 3
+                })
+                removeAllCooldown = false
+                removeAllTimer = nil
+            end
+        end
+    end
+})
+
+local removeAllCooldown = false
+local removeAllTimer = nil
+
+local function CleanWhitelist()
+    local validIds = {}
+    for i = 1, #WhitelistIds do
+        local userId = WhitelistIds[i]
+        if Players:FindFirstChild(tostring(userId)) then
+            table.insert(validIds, userId)
+        end
+    end
+    WhitelistIds = validIds
+    if #WhitelistIds ~= #validIds then
+        RefreshWhitelistDisplay()
+    end
+end
 
 local VisualsTab = Window:CreateTab("Visuals", 4483362458)
 
 VisualsTab:CreateToggle({
     Name = "Show FOV Circle",
     CurrentValue = true,
-    Flag = "ShowFOV",
     Callback = function(Value)
         Settings.ShowFOV = Value
     end
@@ -185,94 +266,9 @@ VisualsTab:CreateSlider({
     Range = {1, 10},
     Increment = 1,
     CurrentValue = 2,
-    Flag = "CircleThickness",
     Callback = function(Value)
         Settings.CircleThickness = Value
         if FOVCircle then FOVCircle.Thickness = Value end
-    end
-})
-
-local WhitelistTab = Window:CreateTab("Whitelist", 4483362458)
-
-local function UpdateWhitelistDisplay()
-    local playerList = {}
-    for _, player in pairs(Players:GetPlayers()) do
-        if Whitelist.Users[player.UserId] then
-            table.insert(playerList, string.format("%s (%d)", player.DisplayName, player.UserId))
-        end
-    end
-    local displayText = #playerList > 0 and table.concat(playerList, ", ") or "No users whitelisted"
-    print("=== WHITELIST ===\n" .. displayText .. "\n=================")
-end
-
-WhitelistTab:CreateButton({
-    Name = "Add Current Player to Whitelist",
-    Callback = function()
-        local player = LocalPlayer
-        if not player then return end
-        Whitelist.Users[player.UserId] = true
-        UpdateWhitelistDisplay()
-        Rayfield:Notify({
-            Title = "Whitelist",
-            Content = string.format("Added %s (%d) to whitelist", player.DisplayName, player.UserId),
-            Duration = 3
-        })
-    end
-})
-
-WhitelistTab:CreateButton({
-    Name = "Remove Selected Player (Check Console for IDs)",
-    Callback = function()
-        local players = Players:GetPlayers()
-        local list = {}
-        for i, player in pairs(players) do
-            table.insert(list, string.format("[%d] %s (%d)", i, player.DisplayName, player.UserId))
-        end
-        print("=== SELECT A PLAYER TO REMOVE ===\n" .. table.concat(list, "\n") .. "\n===================================")
-        Rayfield:Notify({
-            Title = "Whitelist",
-            Content = "Check console for player list. Use /wremove <ID>",
-            Duration = 5
-        })
-    end
-})
-
-WhitelistTab:CreateButton({
-    Name = "Remove All (Double-Click to Confirm)",
-    Callback = function()
-        if not Whitelist.removeCooldown then
-            Whitelist.removeCooldown = true
-            Whitelist.removeTimer = tick()
-            Rayfield:Notify({
-                Title = "Whitelist",
-                Content = "Click again within 5 seconds to confirm remove all.",
-                Duration = 5
-            })
-            task.wait(5)
-            if Whitelist.removeTimer and (tick() - Whitelist.removeTimer) >= 5 then
-                Whitelist.removeCooldown = false
-                Whitelist.removeTimer = nil
-            end
-        else
-            if Whitelist.removeTimer and (tick() - Whitelist.removeTimer) < 5 then
-                Whitelist.Users = {}
-                UpdateWhitelistDisplay()
-                Rayfield:Notify({
-                    Title = "Whitelist",
-                    Content = "All users removed from whitelist.",
-                    Duration = 3
-                })
-                Whitelist.removeCooldown = false
-                Whitelist.removeTimer = nil
-            end
-        end
-    end
-})
-
-game:GetService("Players").PlayerRemoving:Connect(function(player)
-    if Whitelist.Users[player.UserId] then
-        Whitelist.Users[player.UserId] = nil
-        UpdateWhitelistDisplay()
     end
 })
 
@@ -286,12 +282,12 @@ UnloadTab:CreateButton({
     Callback = function()
         if not unloadCooldown then
             unloadCooldown = true
-            unloadTimer = tick()
             Rayfield:Notify({
                 Title = "Unload",
                 Content = "Click again within 5 seconds to confirm.",
                 Duration = 5
             })
+            unloadTimer = tick()
             task.wait(5)
             if unloadTimer and (tick() - unloadTimer) >= 5 then
                 unloadCooldown = false
@@ -306,48 +302,11 @@ UnloadTab:CreateButton({
                 for _, v in pairs(getconnections(RunService.RenderStepped)) do
                     v:Disable()
                 end
-                local gui = game:GetService("CoreGui"):FindFirstChild("Rayfield")
-                if gui then gui:Destroy() end
+                game:GetService("CoreGui"):FindFirstChild("Rayfield"):Destroy()
             end
         end
     end
 })
-
-local function HandleCommand(msg)
-    if string.sub(msg, 1, 9) == "/wremove " then
-        local id = tonumber(string.sub(msg, 10))
-        if id and Whitelist.Users[id] then
-            Whitelist.Users[id] = nil
-            UpdateWhitelistDisplay()
-            Rayfield:Notify({
-                Title = "Whitelist",
-                Content = string.format("Removed user ID %d from whitelist", id),
-                Duration = 3
-            })
-        elseif id then
-            Rayfield:Notify({
-                Title = "Whitelist",
-                Content = "User ID not found in whitelist.",
-                Duration = 3
-            })
-        end
-    end
-end
-
-local function SetupChatHook()
-    local chat = game:GetService("Chat")
-    if chat and chat:FindFirstChild("ChatBar") then
-        chat.ChatBar.FocusLost:Connect(function(enterPressed, inputObject)
-            if enterPressed and inputObject then
-                local msg = inputObject.Text
-                if msg and string.sub(msg, 1, 1) == "/" then
-                    HandleCommand(msg)
-                end
-            end
-        end)
-    end
-end
-pcall(SetupChatHook)
 
 local function GetTargets()
     local targets = {}
@@ -364,31 +323,15 @@ local function GetTargets()
     local ignoreForceField = Settings.IgnoreForceField
     local ignoreFriends = Settings.IgnoreFriends
 
-    local friends = {}
-    if ignoreFriends then
-        pcall(function()
-            local FriendsService = game:GetService("Friends")
-            for _, friend in pairs(FriendsService:GetFriends()) do
-                friends[friend.Id] = true
-            end
-        end)
-    end
+    CleanWhitelist()
 
     for i = 1, #players do
         local player = players[i]
         if player == LocalPlayer then continue end
-
-        if Whitelist.Users[player.UserId] then
-            continue
-        end
-
-        if ignoreFriends and friends[player.UserId] then
-            continue
-        end
-
+        
         local character = player.Character
         if not character then continue end
-
+        
         local humanoid = character:FindFirstChild("Humanoid")
         if not humanoid or humanoid.Health <= 0 then continue end
 
@@ -411,6 +354,14 @@ local function GetTargets()
         end
 
         if ignoreForceField and character:FindFirstChild("ForceField") then
+            continue
+        end
+
+        if ignoreFriends and player:IsFriendsWith(LocalPlayer.UserId) then
+            continue
+        end
+
+        if IsInWhitelist(player) then
             continue
         end
 
@@ -482,5 +433,3 @@ RunService.RenderStepped:Connect(function()
         Camera.CFrame = current:Lerp(lookAt, smooth)
     end
 end)
-
-Rayfield:LoadConfiguration()
