@@ -14,7 +14,6 @@ local Window = Rayfield:CreateWindow({
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local TeamsService = game:GetService("Teams")
 local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -34,7 +33,11 @@ local Settings = {
     InmatesFilter = true,
     IgnoreForceField = false,
     IgnoreFriends = false,
-    TargetTeams = {},
+    TargetTeams = {
+        Guards = true,
+        Inmates = true,
+        Criminals = true
+    },
     Keybinds = {
         ToggleAimbot = "None"
     }
@@ -90,52 +93,6 @@ end
 local function IsKeyPressed(key)
     if key == "None" then return false end
     return UserInputService:IsKeyDown(Enum.KeyCode[key])
-end
-
-local function GetUniqueTeams()
-    local teams = {}
-    local allTeams = TeamsService:GetTeams()
-    for _, team in ipairs(allTeams) do
-        local teamName = team.Name
-        if teamName ~= "Neutral" then
-            teams[teamName] = true
-        end
-    end
-    for _, player in pairs(Players:GetPlayers()) do
-        if player.Team then
-            local teamName = player.Team.Name
-            if teamName ~= "Neutral" then
-                teams[teamName] = true
-            end
-        else
-            teams["No Team"] = true
-        end
-    end
-    return teams
-end
-
-local function BuildTeamToggles()
-    local teams = GetUniqueTeams()
-    local teamNames = {}
-    for name, _ in pairs(teams) do
-        table.insert(teamNames, name)
-    end
-    table.sort(teamNames)
-
-    for _, name in ipairs(teamNames) do
-        if Settings.TargetTeams[name] == nil then
-            Settings.TargetTeams[name] = true
-        end
-        TargetTab:CreateToggle({
-            Name = name,
-            CurrentValue = Settings.TargetTeams[name],
-            Flag = "TargetTeam_" .. name,
-            Callback = function(Value)
-                Settings.TargetTeams[name] = Value
-                SaveConfig()
-            end
-        })
-    end
 end
 
 local AimTab = Window:CreateTab("Aimbot", 4483362458)
@@ -267,7 +224,19 @@ FiltersTab:CreateToggle({
 
 local TargetTab = Window:CreateTab("Target", 4483362458)
 
-BuildTeamToggles()
+local teamNames = {"Guards", "Inmates", "Criminals"}
+
+for _, teamName in ipairs(teamNames) do
+    TargetTab:CreateToggle({
+        Name = teamName,
+        CurrentValue = Settings.TargetTeams[teamName] ~= false,
+        Flag = "TargetTeam_" .. teamName,
+        Callback = function(Value)
+            Settings.TargetTeams[teamName] = Value
+            SaveConfig()
+        end
+    })
+end
 
 local WhitelistTab = Window:CreateTab("Whitelist", 4483362458)
 
@@ -475,15 +444,11 @@ local function GetTargets()
 
         local teamName = player.Team and player.Team.Name or "No Team"
 
-        if teamName == "Neutral" then
+        if targetTeams[teamName] == false then
             continue
         end
 
         if teamCheck and player.Team == myTeam then
-            continue
-        end
-
-        if targetTeams[teamName] == false then
             continue
         end
 
