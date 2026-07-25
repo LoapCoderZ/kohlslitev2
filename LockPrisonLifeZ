@@ -17,6 +17,7 @@ local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+local Teams = game:GetService("Teams")
 
 local CONFIG_PATH = "AimZ/Aim.json"
 
@@ -40,7 +41,6 @@ local Settings = {
 }
 
 local WhitelistIds = {}
-local TeamToggles = {}
 
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Color = Color3.fromRGB(0, 255, 255)
@@ -86,95 +86,6 @@ local function LoadConfig()
     end
     return false
 end
-
-local function GetUniqueTeams()
-    local teams = {}
-    for _, team in pairs(game:GetService("Teams"):GetTeams()) do
-        if team.Name ~= "Neutral" then
-            teams[team.Name] = true
-        end
-    end
-    for _, player in pairs(Players:GetPlayers()) do
-        if not player.Team then
-            teams["No Team"] = true
-        elseif player.Team.Name ~= "Neutral" then
-            teams[player.Team.Name] = true
-        end
-    end
-    return teams
-end
-
-local TargetTab = Window:CreateTab("Target", 4483362458)
-local targetSection = TargetTab:CreateSection("Teams")
-
-local function RebuildTeamToggles()
-    for _, toggle in pairs(TeamToggles) do
-        toggle:Destroy()
-    end
-    TeamToggles = {}
-    
-    local teams = GetUniqueTeams()
-    local teamNames = {}
-    for name, _ in pairs(teams) do
-        table.insert(teamNames, name)
-    end
-    table.sort(teamNames)
-    
-    targetSection:Destroy()
-    targetSection = TargetTab:CreateSection("Teams")
-    
-    for _, name in ipairs(teamNames) do
-        if Settings.TargetTeams[name] == nil then
-            Settings.TargetTeams[name] = true
-        end
-        local toggle = TargetTab:CreateToggle({
-            Name = name,
-            CurrentValue = Settings.TargetTeams[name],
-            Flag = "TargetTeam_" .. name,
-            Callback = function(Value)
-                Settings.TargetTeams[name] = Value
-                SaveConfig()
-            end
-        })
-        TeamToggles[name] = toggle
-    end
-end
-
-RebuildTeamToggles()
-
-Players.PlayerAdded:Connect(function()
-    RebuildTeamToggles()
-end)
-
-Players.PlayerRemoving:Connect(function()
-    RebuildTeamToggles()
-end)
-
-local function OnTeamChanged(player)
-    RebuildTeamToggles()
-end
-
-for _, player in pairs(Players:GetPlayers()) do
-    if player ~= LocalPlayer then
-        player:GetPropertyChangedSignal("Team"):Connect(function()
-            OnTeamChanged(player)
-        end)
-    end
-end
-
-Players.PlayerAdded:Connect(function(player)
-    if player ~= LocalPlayer then
-        player:GetPropertyChangedSignal("Team"):Connect(function()
-            OnTeamChanged(player)
-        end)
-    end
-end)
-
-task.spawn(function()
-    while task.wait(10) do
-        RebuildTeamToggles()
-    end
-end)
 
 local AimTab = Window:CreateTab("Aimbot", 4483362458)
 
@@ -238,34 +149,22 @@ AimTab:CreateDropdown({
 
 local KeybindsTab = Window:CreateTab("Keybinds", 4483362458)
 
-local aimbotKeybind = KeybindsTab:CreateKeybind({
-    Name = "Toggle Aimbot Key",
-    CurrentKeybind = Settings.Keybinds.ToggleAimbot or "None",
+local AimbotKeybind = KeybindsTab:CreateKeybind({
+    Name = "Toggle Aimbot",
+    CurrentKeybind = Settings.Keybinds.ToggleAimbot,
     HoldToInteract = false,
     Flag = "Keybind_ToggleAimbot",
     Callback = function(Keybind)
-    end
-})
-
-local oldSet = aimbotKeybind.Set
-aimbotKeybind.Set = function(self, newKey)
-    oldSet(self, newKey)
-    Settings.Keybinds.ToggleAimbot = newKey
-    SaveConfig()
-end
-
-aimbotKeybind.Callback = function(Keybind)
-    if Settings.Keybinds.ToggleAimbot ~= "None" then
-        Settings.Enabled = not Settings.Enabled
-        Toggle:Set(Settings.Enabled)
+        Settings.Enabled = Keybind
+        Toggle:Set(Keybind)
         SaveConfig()
         Rayfield:Notify({
             Title = "Aimbot",
-            Content = Settings.Enabled and "Enabled" or "Disabled",
+            Content = Keybind and "Enabled" or "Disabled",
             Duration = 1
         })
     end
-end
+})
 
 local FiltersTab = Window:CreateTab("Filters", 4483362458)
 
@@ -318,6 +217,58 @@ FiltersTab:CreateToggle({
         SaveConfig()
     end
 })
+
+local TargetTab = Window:CreateTab("Target", 4483362458)
+
+local function GetUniqueTeams()
+    local teams = {}
+    local teamObjects = Teams:GetTeams()
+    for _, team in ipairs(teamObjects) do
+        local name = team.Name
+        if name ~= "Neutral" then
+            teams[name] = true
+        end
+    end
+    if #teamObjects == 0 then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player.Team then
+                local name = player.Team.Name
+                if name ~= "Neutral" then
+                    teams[name] = true
+                end
+            else
+                teams["No Team"] = true
+            end
+        end
+    end
+    return teams
+end
+
+local function BuildTeamToggles()
+    local teams = GetUniqueTeams()
+    local teamNames = {}
+    for name, _ in pairs(teams) do
+        table.insert(teamNames, name)
+    end
+    table.sort(teamNames)
+
+    for _, name in ipairs(teamNames) do
+        if Settings.TargetTeams[name] == nil then
+            Settings.TargetTeams[name] = true
+        end
+        TargetTab:CreateToggle({
+            Name = name,
+            CurrentValue = Settings.TargetTeams[name],
+            Flag = "TargetTeam_" .. name,
+            Callback = function(Value)
+                Settings.TargetTeams[name] = Value
+                SaveConfig()
+            end
+        })
+    end
+end
+
+BuildTeamToggles()
 
 local WhitelistTab = Window:CreateTab("Whitelist", 4483362458)
 
@@ -611,10 +562,6 @@ LoadConfig()
 
 if Settings.Enabled then
     Toggle:Set(true)
-end
-
-if Settings.Keybinds.ToggleAimbot and Settings.Keybinds.ToggleAimbot ~= "None" then
-    aimbotKeybind:Set(Settings.Keybinds.ToggleAimbot)
 end
 
 RunService.RenderStepped:Connect(function()
