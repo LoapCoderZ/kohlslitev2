@@ -5,9 +5,7 @@ local Window = Rayfield:CreateWindow({
     LoadingTitle = "Bad",
     LoadingSubtitle = "Are you a furry?",
     ConfigurationSaving = {
-        Enabled = true,
-        FolderName = "AimZ",
-        FileName = "Aim"
+        Enabled = false
     },
     ShowText = "Rayfield",
     Theme = "Default"
@@ -15,8 +13,12 @@ local Window = Rayfield:CreateWindow({
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+
+local CONFIG_PATH = "AimZ/Aim.json"
 
 local Settings = {
     Enabled = false,
@@ -31,10 +33,14 @@ local Settings = {
     InmatesFilter = true,
     IgnoreForceField = false,
     IgnoreFriends = false,
-    TargetTeams = {}
+    TargetTeams = {},
+    Keybinds = {
+        ToggleAimbot = "None"
+    }
 }
 
 local WhitelistIds = {}
+
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Color = Color3.fromRGB(0, 255, 255)
 FOVCircle.Thickness = Settings.CircleThickness
@@ -44,13 +50,56 @@ FOVCircle.Filled = false
 FOVCircle.Visible = false
 FOVCircle.ZIndex = 0
 
+local function SaveConfig()
+    local success, encoded = pcall(HttpService.JSONEncode, HttpService, Settings)
+    if success then
+        local success2, err = pcall(writefile, CONFIG_PATH, encoded)
+        if not success2 then
+            warn("Failed to save config: " .. tostring(err))
+        end
+    else
+        warn("Failed to encode config: " .. tostring(encoded))
+    end
+end
+
+local function LoadConfig()
+    local success, data = pcall(readfile, CONFIG_PATH)
+    if success and data then
+        local success2, decoded = pcall(HttpService.JSONDecode, HttpService, data)
+        if success2 and type(decoded) == "table" then
+            for key, value in pairs(decoded) do
+                if key == "TargetTeams" then
+                    for team, enabled in pairs(value) do
+                        Settings.TargetTeams[team] = enabled
+                    end
+                elseif key == "Keybinds" then
+                    for bind, keyCode in pairs(value) do
+                        Settings.Keybinds[bind] = keyCode
+                    end
+                else
+                    Settings[key] = value
+                end
+            end
+            return true
+        end
+    end
+    return false
+end
+
+local function IsKeyPressed(key)
+    if key == "None" then return false end
+    return UserInputService:IsKeyDown(Enum.KeyCode[key])
+end
+
 local AimTab = Window:CreateTab("Aimbot", 4483362458)
 
 local Toggle = AimTab:CreateToggle({
     Name = "Enable Aimbot",
     CurrentValue = false,
+    Flag = "Enabled",
     Callback = function(Value)
         Settings.Enabled = Value
+        SaveConfig()
     end
 })
 
@@ -59,9 +108,11 @@ AimTab:CreateSlider({
     Range = {50, 500},
     Increment = 10,
     CurrentValue = 150,
+    Flag = "FOV",
     Callback = function(Value)
         Settings.FOV = Value
         if FOVCircle then FOVCircle.Radius = Value end
+        SaveConfig()
     end
 })
 
@@ -70,8 +121,10 @@ AimTab:CreateSlider({
     Range = {50, 1000},
     Increment = 10,
     CurrentValue = 200,
+    Flag = "MaxDistance",
     Callback = function(Value)
         Settings.MaxDistance = Value
+        SaveConfig()
     end
 })
 
@@ -80,8 +133,10 @@ AimTab:CreateSlider({
     Range = {0.05, 1},
     Increment = 0.05,
     CurrentValue = 0.2,
+    Flag = "Smoothness",
     Callback = function(Value)
         Settings.Smoothness = Value
+        SaveConfig()
     end
 })
 
@@ -89,8 +144,25 @@ AimTab:CreateDropdown({
     Name = "Target Priority",
     Options = {"Closest to Center", "Lowest Health", "Highest Health"},
     CurrentOption = "Closest to Center",
+    Flag = "Priority",
     Callback = function(Option)
         Settings.Priority = Option
+        SaveConfig()
+    end
+})
+
+local KeybindsTab = Window:CreateTab("Keybinds", 4483362458)
+
+local keyOptions = {"None", "LeftShift", "RightShift", "LeftControl", "RightControl", "LeftAlt", "RightAlt", "F", "R", "Q", "E", "X", "C", "V", "L", "M", "G", "H", "J", "K", "Z", "Y", "U", "I", "O", "P", "B", "N"}
+
+KeybindsTab:CreateDropdown({
+    Name = "Toggle Aimbot Key",
+    Options = keyOptions,
+    CurrentOption = "None",
+    Flag = "Keybind_ToggleAimbot",
+    Callback = function(Option)
+        Settings.Keybinds.ToggleAimbot = Option
+        SaveConfig()
     end
 })
 
@@ -99,40 +171,50 @@ local FiltersTab = Window:CreateTab("Filters", 4483362458)
 FiltersTab:CreateToggle({
     Name = "Wall Check",
     CurrentValue = false,
+    Flag = "WallCheck",
     Callback = function(Value)
         Settings.WallCheck = Value
+        SaveConfig()
     end
 })
 
 FiltersTab:CreateToggle({
     Name = "Team Check",
     CurrentValue = false,
+    Flag = "TeamCheck",
     Callback = function(Value)
         Settings.TeamCheck = Value
+        SaveConfig()
     end
 })
 
 FiltersTab:CreateToggle({
     Name = "Inmates Attribute Filter",
     CurrentValue = true,
+    Flag = "InmatesFilter",
     Callback = function(Value)
         Settings.InmatesFilter = Value
+        SaveConfig()
     end
 })
 
 FiltersTab:CreateToggle({
     Name = "Ignore ForceField",
     CurrentValue = false,
+    Flag = "IgnoreForceField",
     Callback = function(Value)
         Settings.IgnoreForceField = Value
+        SaveConfig()
     end
 })
 
 FiltersTab:CreateToggle({
     Name = "Ignore Friends",
     CurrentValue = false,
+    Flag = "IgnoreFriends",
     Callback = function(Value)
         Settings.IgnoreFriends = Value
+        SaveConfig()
     end
 })
 
@@ -143,7 +225,6 @@ local function GetUniqueTeams()
     for _, player in pairs(Players:GetPlayers()) do
         if player.Team then
             local teamName = player.Team.Name
-            -- Always exclude Neutral
             if teamName ~= "Neutral" then
                 teams[teamName] = true
             end
@@ -169,8 +250,10 @@ local function BuildTeamToggles()
         TargetTab:CreateToggle({
             Name = name,
             CurrentValue = Settings.TargetTeams[name],
+            Flag = "TargetTeam_" .. name,
             Callback = function(Value)
                 Settings.TargetTeams[name] = Value
+                SaveConfig()
             end
         })
     end
@@ -297,8 +380,10 @@ local VisualsTab = Window:CreateTab("Visuals", 4483362458)
 VisualsTab:CreateToggle({
     Name = "Show FOV Circle",
     CurrentValue = true,
+    Flag = "ShowFOV",
     Callback = function(Value)
         Settings.ShowFOV = Value
+        SaveConfig()
     end
 })
 
@@ -307,9 +392,11 @@ VisualsTab:CreateSlider({
     Range = {1, 10},
     Increment = 1,
     CurrentValue = 2,
+    Flag = "CircleThickness",
     Callback = function(Value)
         Settings.CircleThickness = Value
         if FOVCircle then FOVCircle.Thickness = Value end
+        SaveConfig()
     end
 })
 
@@ -339,6 +426,7 @@ UnloadTab:CreateButton({
                 Settings.Enabled = false
                 Toggle:Set(false)
                 if FOVCircle then FOVCircle.Visible = false end
+                SaveConfig()
                 Rayfield:Destroy()
                 for _, v in pairs(getconnections(RunService.RenderStepped)) do
                     v:Disable()
@@ -359,6 +447,151 @@ local function GetTargets()
     local myChar = LocalPlayer.Character
     local maxDist = Settings.MaxDistance
     local fov = Settings.FOV
+    local targetPartName = "Head"
+    local inmatesFilter = Settings.InmatesFilter
+    local ignoreForceField = Settings.IgnoreForceField
+    local ignoreFriends = Settings.IgnoreFriends
+    local targetTeams = Settings.TargetTeams
+
+    CleanWhitelist()
+
+    for i = 1, #players do
+        local player = players[i]
+        if player == LocalPlayer then continue end
+        
+        local character = player.Character
+        if not character then continue end
+        
+        local humanoid = character:FindFirstChild("Humanoid")
+        if not humanoid or humanoid.Health <= 0 then continue end
+
+        local teamName = player.Team and player.Team.Name or "No Team"
+
+        if teamName == "Neutral" then
+            continue
+        end
+
+        if teamCheck and player.Team == myTeam then
+            continue
+        end
+
+        if targetTeams[teamName] == false then
+            continue
+        end
+
+        if inmatesFilter and teamName == "Inmates" then
+            local punched = character:GetAttribute("PunchedSomeone") or false
+            local hostile = character:GetAttribute("Hostile") or false
+            local equipped = character:GetAttribute("EquipedHostileTool") or false
+            local trespass = character:GetAttribute("Trespassing") or false
+            if not (punched or hostile or equipped or trespass) then
+                continue
+            end
+        end
+
+        if ignoreForceField and character:FindFirstChild("ForceField") then
+            continue
+        end
+
+        if ignoreFriends and player:IsFriendsWith(LocalPlayer.UserId) then
+            continue
+        end
+
+        if IsInWhitelist(player) then
+            continue
+        end
+
+        local targetPart = character:FindFirstChild(targetPartName)
+        if not targetPart then continue end
+
+        local distance = (Camera.CFrame.Position - targetPart.Position).Magnitude
+        if distance > maxDist then continue end
+
+        if wallCheck and myChar then
+            local origin = Camera.CFrame.Position
+            local direction = (targetPart.Position - origin).Unit * 1000
+            local ray = Ray.new(origin, direction)
+            local hit = workspace:FindPartOnRay(ray, myChar)
+            if hit and not hit:IsDescendantOf(character) then
+                continue
+            end
+        end
+
+        local pos, onScreen = Camera:WorldToScreenPoint(targetPart.Position)
+        if not onScreen then continue end
+
+        local distToCenter = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+        if distToCenter > fov then continue end
+
+        table.insert(targets, {
+            player = player,
+            character = character,
+            targetPart = targetPart,
+            distance = distance,
+            distToCenter = distToCenter,
+            health = humanoid.Health
+        })
+    end
+    return targets
+end
+
+local function GetBestTarget(targets)
+    if #targets == 0 then return nil end
+
+    local priority = Settings.Priority
+    if priority == "Closest to Center" then
+        table.sort(targets, function(a, b) return a.distToCenter < b.distToCenter end)
+    elseif priority == "Lowest Health" then
+        table.sort(targets, function(a, b) return a.health < b.health end)
+    elseif priority == "Highest Health" then
+        table.sort(targets, function(a, b) return a.health > b.health end)
+    end
+    return targets[1]
+end
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode then
+        local keyName = tostring(input.KeyCode)
+        if Settings.Keybinds.ToggleAimbot == keyName then
+            Settings.Enabled = not Settings.Enabled
+            Toggle:Set(Settings.Enabled)
+            SaveConfig()
+            Rayfield:Notify({
+                Title = "Aimbot",
+                Content = Settings.Enabled and "Enabled" or "Disabled",
+                Duration = 1
+            })
+        end
+    end
+end)
+
+LoadConfig()
+
+if Settings.Enabled then
+    Toggle:Set(true)
+end
+
+RunService.RenderStepped:Connect(function()
+    if Settings.ShowFOV and Settings.Enabled then
+        FOVCircle.Visible = true
+        FOVCircle.Position = Camera.ViewportSize / 2
+        FOVCircle.Radius = Settings.FOV
+    else
+        FOVCircle.Visible = false
+    end
+
+    if not Settings.Enabled then return end
+
+    local targets = GetTargets()
+    local best = GetBestTarget(targets)
+    if best then
+        local current = Camera.CFrame
+        local lookAt = CFrame.lookAt(current.Position, best.targetPart.Position)
+        local smooth = Settings.Smoothness
+        Camera.CFrame = current:Lerp(lookAt, smooth)
+    end
+end)Settings.FOV
     local targetPartName = "Head"
     local inmatesFilter = Settings.InmatesFilter
     local ignoreForceField = Settings.IgnoreForceField
