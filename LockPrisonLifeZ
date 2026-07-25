@@ -14,6 +14,7 @@ local Window = Rayfield:CreateWindow({
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local TeamsService = game:GetService("Teams")
 local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -86,176 +87,35 @@ local function LoadConfig()
     return false
 end
 
-local keyOptions = {
-    "None", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
-    "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
-    "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Zero",
-    "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
-    "LeftShift", "RightShift", "LeftControl", "RightControl", "LeftAlt", "RightAlt",
-    "LeftCommand", "RightCommand", "LeftMeta", "RightMeta",
-    "Tab", "CapsLock", "Space", "Enter", "Backspace", "Delete", "Insert",
-    "Home", "End", "PageUp", "PageDown",
-    "Up", "Down", "Left", "Right",
-    "NumLock", "Keypad0", "Keypad1", "Keypad2", "Keypad3", "Keypad4",
-    "Keypad5", "Keypad6", "Keypad7", "Keypad8", "Keypad9",
-    "KeypadPlus", "KeypadMinus", "KeypadMultiply", "KeypadDivide", "KeypadEnter",
-    "Period", "Comma", "Slash", "Backslash", "Semicolon", "Quote", "LeftBracket", "RightBracket", "Tilde"
-}
+local function IsKeyPressed(key)
+    if key == "None" then return false end
+    return UserInputService:IsKeyDown(Enum.KeyCode[key])
+end
 
-local AimTab = Window:CreateTab("Aimbot", 4483362458)
-
-local Toggle = AimTab:CreateToggle({
-    Name = "Enable Aimbot",
-    CurrentValue = false,
-    Callback = function(Value)
-        Settings.Enabled = Value
-        SaveConfig()
-    end
-})
-
-AimTab:CreateSlider({
-    Name = "FOV Radius",
-    Range = {50, 500},
-    Increment = 10,
-    CurrentValue = 150,
-    Callback = function(Value)
-        Settings.FOV = Value
-        if FOVCircle then FOVCircle.Radius = Value end
-        SaveConfig()
-    end
-})
-
-AimTab:CreateSlider({
-    Name = "Max Distance",
-    Range = {50, 1000},
-    Increment = 10,
-    CurrentValue = 200,
-    Callback = function(Value)
-        Settings.MaxDistance = Value
-        SaveConfig()
-    end
-})
-
-AimTab:CreateSlider({
-    Name = "Smoothness",
-    Range = {0.05, 1},
-    Increment = 0.05,
-    CurrentValue = 0.2,
-    Callback = function(Value)
-        Settings.Smoothness = Value
-        SaveConfig()
-    end
-})
-
-AimTab:CreateDropdown({
-    Name = "Target Priority",
-    Options = {"Closest to Center", "Lowest Health", "Highest Health"},
-    CurrentOption = "Closest to Center",
-    Callback = function(Option)
-        Settings.Priority = Option
-        SaveConfig()
-    end
-})
-
-local KeybindsTab = Window:CreateTab("Keybinds", 4483362458)
-
-KeybindsTab:CreateDropdown({
-    Name = "Toggle Aimbot Key",
-    Options = keyOptions,
-    CurrentOption = Settings.Keybinds.ToggleAimbot or "None",
-    Callback = function(Option)
-        Settings.Keybinds.ToggleAimbot = Option
-        SaveConfig()
-    end
-})
-
-local FiltersTab = Window:CreateTab("Filters", 4483362458)
-
-FiltersTab:CreateToggle({
-    Name = "Wall Check",
-    CurrentValue = false,
-    Callback = function(Value)
-        Settings.WallCheck = Value
-        SaveConfig()
-    end
-})
-
-FiltersTab:CreateToggle({
-    Name = "Team Check",
-    CurrentValue = false,
-    Callback = function(Value)
-        Settings.TeamCheck = Value
-        SaveConfig()
-    end
-})
-
-FiltersTab:CreateToggle({
-    Name = "Inmates Attribute Filter",
-    CurrentValue = true,
-    Callback = function(Value)
-        Settings.InmatesFilter = Value
-        SaveConfig()
-    end
-})
-
-FiltersTab:CreateToggle({
-    Name = "Ignore ForceField",
-    CurrentValue = false,
-    Callback = function(Value)
-        Settings.IgnoreForceField = Value
-        SaveConfig()
-    end
-})
-
-FiltersTab:CreateToggle({
-    Name = "Ignore Friends",
-    CurrentValue = false,
-    Callback = function(Value)
-        Settings.IgnoreFriends = Value
-        SaveConfig()
-    end
-})
-
-local TargetTab = Window:CreateTab("Target", 4483362458)
-
-local function GetAllTeams()
+local function GetUniqueTeams()
     local teams = {}
-    local allTeams = game:GetService("Teams"):GetTeams()
-    
+    local allTeams = TeamsService:GetTeams()
     for _, team in ipairs(allTeams) do
         local teamName = team.Name
         if teamName ~= "Neutral" then
             teams[teamName] = true
         end
     end
-    
-    if #allTeams == 0 then
-        for _, player in pairs(Players:GetPlayers()) do
-            if player.Team then
-                local teamName = player.Team.Name
-                if teamName ~= "Neutral" then
-                    teams[teamName] = true
-                end
-            else
-                teams["No Team"] = true
-            end
-        end
-    end
-    
     for _, player in pairs(Players:GetPlayers()) do
         if player.Team then
             local teamName = player.Team.Name
-            if teamName ~= "Neutral" and not teams[teamName] then
+            if teamName ~= "Neutral" then
                 teams[teamName] = true
             end
+        else
+            teams["No Team"] = true
         end
     end
-    
     return teams
 end
 
 local function BuildTeamToggles()
-    local teams = GetAllTeams()
+    local teams = GetUniqueTeams()
     local teamNames = {}
     for name, _ in pairs(teams) do
         table.insert(teamNames, name)
@@ -269,6 +129,7 @@ local function BuildTeamToggles()
         TargetTab:CreateToggle({
             Name = name,
             CurrentValue = Settings.TargetTeams[name],
+            Flag = "TargetTeam_" .. name,
             Callback = function(Value)
                 Settings.TargetTeams[name] = Value
                 SaveConfig()
@@ -276,6 +137,135 @@ local function BuildTeamToggles()
         })
     end
 end
+
+local AimTab = Window:CreateTab("Aimbot", 4483362458)
+
+local Toggle = AimTab:CreateToggle({
+    Name = "Enable Aimbot",
+    CurrentValue = false,
+    Flag = "Enabled",
+    Callback = function(Value)
+        Settings.Enabled = Value
+        SaveConfig()
+    end
+})
+
+AimTab:CreateSlider({
+    Name = "FOV Radius",
+    Range = {50, 500},
+    Increment = 10,
+    CurrentValue = 150,
+    Flag = "FOV",
+    Callback = function(Value)
+        Settings.FOV = Value
+        if FOVCircle then FOVCircle.Radius = Value end
+        SaveConfig()
+    end
+})
+
+AimTab:CreateSlider({
+    Name = "Max Distance",
+    Range = {50, 1000},
+    Increment = 10,
+    CurrentValue = 200,
+    Flag = "MaxDistance",
+    Callback = function(Value)
+        Settings.MaxDistance = Value
+        SaveConfig()
+    end
+})
+
+AimTab:CreateSlider({
+    Name = "Smoothness",
+    Range = {0.05, 1},
+    Increment = 0.05,
+    CurrentValue = 0.2,
+    Flag = "Smoothness",
+    Callback = function(Value)
+        Settings.Smoothness = Value
+        SaveConfig()
+    end
+})
+
+AimTab:CreateDropdown({
+    Name = "Target Priority",
+    Options = {"Closest to Center", "Lowest Health", "Highest Health"},
+    CurrentOption = "Closest to Center",
+    Flag = "Priority",
+    Callback = function(Option)
+        Settings.Priority = Option
+        SaveConfig()
+    end
+})
+
+local KeybindsTab = Window:CreateTab("Keybinds", 4483362458)
+
+local keyOptions = {"None", "LeftShift", "RightShift", "LeftControl", "RightControl", "LeftAlt", "RightAlt", "F", "R", "Q", "E", "X", "C", "V", "L", "M", "G", "H", "J", "K", "Z", "Y", "U", "I", "O", "P", "B", "N"}
+
+KeybindsTab:CreateDropdown({
+    Name = "Toggle Aimbot Key",
+    Options = keyOptions,
+    CurrentOption = "None",
+    Flag = "Keybind_ToggleAimbot",
+    Callback = function(Option)
+        Settings.Keybinds.ToggleAimbot = Option
+        SaveConfig()
+    end
+})
+
+local FiltersTab = Window:CreateTab("Filters", 4483362458)
+
+FiltersTab:CreateToggle({
+    Name = "Wall Check",
+    CurrentValue = false,
+    Flag = "WallCheck",
+    Callback = function(Value)
+        Settings.WallCheck = Value
+        SaveConfig()
+    end
+})
+
+FiltersTab:CreateToggle({
+    Name = "Team Check",
+    CurrentValue = false,
+    Flag = "TeamCheck",
+    Callback = function(Value)
+        Settings.TeamCheck = Value
+        SaveConfig()
+    end
+})
+
+FiltersTab:CreateToggle({
+    Name = "Inmates Attribute Filter",
+    CurrentValue = true,
+    Flag = "InmatesFilter",
+    Callback = function(Value)
+        Settings.InmatesFilter = Value
+        SaveConfig()
+    end
+})
+
+FiltersTab:CreateToggle({
+    Name = "Ignore ForceField",
+    CurrentValue = false,
+    Flag = "IgnoreForceField",
+    Callback = function(Value)
+        Settings.IgnoreForceField = Value
+        SaveConfig()
+    end
+})
+
+FiltersTab:CreateToggle({
+    Name = "Ignore Friends",
+    CurrentValue = false,
+    Flag = "IgnoreFriends",
+    Callback = function(Value)
+        Settings.IgnoreFriends = Value
+        SaveConfig()
+    end
+})
+
+local TargetTab = Window:CreateTab("Target", 4483362458)
 
 BuildTeamToggles()
 
@@ -398,6 +388,7 @@ local VisualsTab = Window:CreateTab("Visuals", 4483362458)
 VisualsTab:CreateToggle({
     Name = "Show FOV Circle",
     CurrentValue = true,
+    Flag = "ShowFOV",
     Callback = function(Value)
         Settings.ShowFOV = Value
         SaveConfig()
@@ -409,6 +400,7 @@ VisualsTab:CreateSlider({
     Range = {1, 10},
     Increment = 1,
     CurrentValue = 2,
+    Flag = "CircleThickness",
     Callback = function(Value)
         Settings.CircleThickness = Value
         if FOVCircle then FOVCircle.Thickness = Value end
@@ -567,10 +559,9 @@ end
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
-    if input.UserInputType == Enum.UserInputType.Keyboard then
+    if input.KeyCode then
         local keyName = tostring(input.KeyCode)
-        local bindKey = Settings.Keybinds.ToggleAimbot
-        if bindKey ~= "None" and keyName == bindKey then
+        if Settings.Keybinds.ToggleAimbot == keyName then
             Settings.Enabled = not Settings.Enabled
             Toggle:Set(Settings.Enabled)
             SaveConfig()
