@@ -158,11 +158,6 @@ local AimbotKeybind = KeybindsTab:CreateKeybind({
         Settings.Enabled = Keybind
         Toggle:Set(Keybind)
         SaveConfig()
-        Rayfield:Notify({
-            Title = "Aimbot",
-            Content = Keybind and "Enabled" or "Disabled",
-            Duration = 1
-        })
     end
 })
 
