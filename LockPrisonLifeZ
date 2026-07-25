@@ -23,11 +23,13 @@ local Settings = {
     FOV = 150,
     Smoothness = 0.2,
     ShowFOV = true,
-    WallCheck = false,
-    TeamCheck = false,
     CircleThickness = 2,
     MaxDistance = 200,
-    Priority = "Closest to Center"  -- "Closest to Center", "Lowest Health", "Highest Health"
+    Priority = "Closest to Center",
+    WallCheck = false,
+    TeamCheck = false,
+    InmatesFilter = true,
+    IgnoreForceField = false
 }
 
 local FOVCircle = Drawing.new("Circle")
@@ -89,15 +91,9 @@ AimTab:CreateDropdown({
     end
 })
 
-AimTab:CreateToggle({
-    Name = "Show FOV Circle",
-    CurrentValue = true,
-    Callback = function(Value)
-        Settings.ShowFOV = Value
-    end
-})
+local FiltersTab = Window:CreateTab("Filters", 4483362458)
 
-AimTab:CreateToggle({
+FiltersTab:CreateToggle({
     Name = "Wall Check",
     CurrentValue = false,
     Callback = function(Value)
@@ -105,7 +101,7 @@ AimTab:CreateToggle({
     end
 })
 
-AimTab:CreateToggle({
+FiltersTab:CreateToggle({
     Name = "Team Check",
     CurrentValue = false,
     Callback = function(Value)
@@ -113,7 +109,31 @@ AimTab:CreateToggle({
     end
 })
 
+FiltersTab:CreateToggle({
+    Name = "Inmates Attribute Filter",
+    CurrentValue = true,
+    Callback = function(Value)
+        Settings.InmatesFilter = Value
+    end
+})
+
+FiltersTab:CreateToggle({
+    Name = "Ignore ForceField",
+    CurrentValue = false,
+    Callback = function(Value)
+        Settings.IgnoreForceField = Value
+    end
+})
+
 local VisualsTab = Window:CreateTab("Visuals", 4483362458)
+
+VisualsTab:CreateToggle({
+    Name = "Show FOV Circle",
+    CurrentValue = true,
+    Callback = function(Value)
+        Settings.ShowFOV = Value
+    end
+})
 
 VisualsTab:CreateSlider({
     Name = "Circle Thickness",
@@ -173,6 +193,8 @@ local function GetTargets()
     local maxDist = Settings.MaxDistance
     local fov = Settings.FOV
     local targetPartName = "Head"
+    local inmatesFilter = Settings.InmatesFilter
+    local ignoreForceField = Settings.IgnoreForceField
 
     for i = 1, #players do
         local player = players[i]
@@ -182,9 +204,8 @@ local function GetTargets()
         if not character then continue end
         
         local humanoid = character:FindFirstChild("Humanoid")
-        if not humanoid or humanoid.Health <= 0 then continue end  -- Ignorar mortos
+        if not humanoid or humanoid.Health <= 0 then continue end
 
-        -- Ignorar equipe Neutral
         if player.Team and player.Team.Name == "Neutral" then
             continue
         end
@@ -193,8 +214,7 @@ local function GetTargets()
             continue
         end
 
-        -- Inmates filter
-        if player.Team and player.Team.Name == "Inmates" then
+        if inmatesFilter and player.Team and player.Team.Name == "Inmates" then
             local punched = character:GetAttribute("PunchedSomeone") or false
             local hostile = character:GetAttribute("Hostile") or false
             local equipped = character:GetAttribute("EquipedHostileTool") or false
@@ -204,10 +224,13 @@ local function GetTargets()
             end
         end
 
+        if ignoreForceField and character:FindFirstChild("ForceField") then
+            continue
+        end
+
         local targetPart = character:FindFirstChild(targetPartName)
         if not targetPart then continue end
 
-        -- Distância máxima
         local distance = (Camera.CFrame.Position - targetPart.Position).Magnitude
         if distance > maxDist then continue end
 
