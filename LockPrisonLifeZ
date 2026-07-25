@@ -36,9 +36,11 @@ local Settings = {
     TargetTeams = {},
     Keybinds = {
         ToggleAimbot = "None"
-    },
-    Whitelist = {}
+    }
 }
+
+local WhitelistIds = {}
+local TeamToggles = {}
 
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Color = Color3.fromRGB(0, 255, 255)
@@ -49,27 +51,8 @@ FOVCircle.Filled = false
 FOVCircle.Visible = false
 FOVCircle.ZIndex = 0
 
-local TeamToggles = {}
-
 local function SaveConfig()
-    local configToSave = {
-        Enabled = Settings.Enabled,
-        FOV = Settings.FOV,
-        Smoothness = Settings.Smoothness,
-        ShowFOV = Settings.ShowFOV,
-        CircleThickness = Settings.CircleThickness,
-        MaxDistance = Settings.MaxDistance,
-        Priority = Settings.Priority,
-        WallCheck = Settings.WallCheck,
-        TeamCheck = Settings.TeamCheck,
-        InmatesFilter = Settings.InmatesFilter,
-        IgnoreForceField = Settings.IgnoreForceField,
-        IgnoreFriends = Settings.IgnoreFriends,
-        TargetTeams = Settings.TargetTeams,
-        Keybinds = Settings.Keybinds,
-        Whitelist = Settings.Whitelist
-    }
-    local success, encoded = pcall(HttpService.JSONEncode, HttpService, configToSave)
+    local success, encoded = pcall(HttpService.JSONEncode, HttpService, Settings)
     if success then
         local success2, err = pcall(writefile, CONFIG_PATH, encoded)
         if not success2 then
@@ -94,8 +77,6 @@ local function LoadConfig()
                     for bind, keyCode in pairs(value) do
                         Settings.Keybinds[bind] = keyCode
                     end
-                elseif key == "Whitelist" then
-                    Settings.Whitelist = value
                 else
                     Settings[key] = value
                 end
@@ -273,7 +254,6 @@ aimbotKeybind.Set = function(self, newKey)
     SaveConfig()
 end
 
-local oldCallback = aimbotKeybind.Callback
 aimbotKeybind.Callback = function(Keybind)
     if Settings.Keybinds.ToggleAimbot ~= "None" then
         Settings.Enabled = not Settings.Enabled
@@ -343,7 +323,7 @@ local WhitelistTab = Window:CreateTab("Whitelist", 4483362458)
 
 local function RefreshWhitelistDisplay()
     local playerList = {}
-    for i, userId in ipairs(Settings.Whitelist) do
+    for i, userId in ipairs(WhitelistIds) do
         local player = Players:FindFirstChild(tostring(userId))
         if player then
             table.insert(playerList, string.format("%s (%d)", player.DisplayName, userId))
@@ -352,13 +332,13 @@ local function RefreshWhitelistDisplay()
         end
     end
     local displayText = #playerList > 0 and table.concat(playerList, ", ") or "Empty"
-    print(string.format("Whitelist [%d]: %s", #Settings.Whitelist, displayText))
+    print(string.format("Whitelist [%d]: %s", #WhitelistIds, displayText))
 end
 
 local function IsInWhitelist(player)
     local userId = player.UserId
-    for i = 1, #Settings.Whitelist do
-        if Settings.Whitelist[i] == userId then
+    for i = 1, #WhitelistIds do
+        if WhitelistIds[i] == userId then
             return true
         end
     end
@@ -375,9 +355,8 @@ WhitelistTab:CreateInput({
                 if player.Name:lower() == Input:lower() or player.DisplayName:lower() == Input:lower() then
                     local userId = player.UserId
                     if not IsInWhitelist(player) then
-                        table.insert(Settings.Whitelist, userId)
+                        table.insert(WhitelistIds, userId)
                         RefreshWhitelistDisplay()
-                        SaveConfig()
                         Rayfield:Notify({
                             Title = "Whitelist",
                             Content = string.format("Added %s", player.DisplayName),
@@ -426,9 +405,8 @@ WhitelistTab:CreateButton({
             end
         else
             if removeAllTimer and (tick() - removeAllTimer) < 5 then
-                Settings.Whitelist = {}
+                WhitelistIds = {}
                 RefreshWhitelistDisplay()
-                SaveConfig()
                 Rayfield:Notify({
                     Title = "Whitelist",
                     Content = "All players removed from whitelist",
@@ -443,16 +421,15 @@ WhitelistTab:CreateButton({
 
 local function CleanWhitelist()
     local validIds = {}
-    for i = 1, #Settings.Whitelist do
-        local userId = Settings.Whitelist[i]
+    for i = 1, #WhitelistIds do
+        local userId = WhitelistIds[i]
         if Players:FindFirstChild(tostring(userId)) then
             table.insert(validIds, userId)
         end
     end
-    Settings.Whitelist = validIds
-    if #Settings.Whitelist ~= #validIds then
+    WhitelistIds = validIds
+    if #WhitelistIds ~= #validIds then
         RefreshWhitelistDisplay()
-        SaveConfig()
     end
 end
 
@@ -639,8 +616,6 @@ end
 if Settings.Keybinds.ToggleAimbot and Settings.Keybinds.ToggleAimbot ~= "None" then
     aimbotKeybind:Set(Settings.Keybinds.ToggleAimbot)
 end
-
-RefreshWhitelistDisplay()
 
 RunService.RenderStepped:Connect(function()
     if Settings.ShowFOV and Settings.Enabled then
