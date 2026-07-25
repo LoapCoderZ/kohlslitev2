@@ -443,6 +443,10 @@ local function GetTargets()
 
         local teamName = player.Team and player.Team.Name or "No Team"
 
+        if teamName == "Neutral" then
+            continue
+        end
+
         if targetTeams[teamName] == false then
             continue
         end
