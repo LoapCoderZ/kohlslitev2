@@ -1,4 +1,25 @@
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+getgenv().SecureMode = true
+
+local success, Rayfield = pcall(function()
+    return loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+end)
+
+if not success or not Rayfield then
+    warn("Failed to load Rayfield.")
+    return
+end
+
+local folderName = "AimZ"
+local fileName = "Aim"
+
+if not isfolder(folderName) then
+    makefolder(folderName)
+end
+
+local configPath = folderName .. "/" .. fileName .. ".json"
+if not isfile(configPath) then
+    writefile(configPath, game:GetService("HttpService"):JSONEncode({}))
+end
 
 local Window = Rayfield:CreateWindow({
     Name = "Bad",
@@ -6,8 +27,8 @@ local Window = Rayfield:CreateWindow({
     LoadingSubtitle = "Are you a furry?",
     ConfigurationSaving = {
         Enabled = true,
-        FolderName = "AimZ",
-        FileName = "AimZ"
+        FolderName = folderName,
+        FileName = fileName
     },
     ShowText = "Rayfield",
     Theme = "Default"
