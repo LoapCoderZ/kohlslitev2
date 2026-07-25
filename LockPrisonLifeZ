@@ -36,10 +36,9 @@ local Settings = {
     TargetTeams = {},
     Keybinds = {
         ToggleAimbot = "None"
-    }
+    },
+    Whitelist = {}
 }
-
-local WhitelistIds = {}
 
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Color = Color3.fromRGB(0, 255, 255)
@@ -50,8 +49,27 @@ FOVCircle.Filled = false
 FOVCircle.Visible = false
 FOVCircle.ZIndex = 0
 
+local TeamToggles = {}
+
 local function SaveConfig()
-    local success, encoded = pcall(HttpService.JSONEncode, HttpService, Settings)
+    local configToSave = {
+        Enabled = Settings.Enabled,
+        FOV = Settings.FOV,
+        Smoothness = Settings.Smoothness,
+        ShowFOV = Settings.ShowFOV,
+        CircleThickness = Settings.CircleThickness,
+        MaxDistance = Settings.MaxDistance,
+        Priority = Settings.Priority,
+        WallCheck = Settings.WallCheck,
+        TeamCheck = Settings.TeamCheck,
+        InmatesFilter = Settings.InmatesFilter,
+        IgnoreForceField = Settings.IgnoreForceField,
+        IgnoreFriends = Settings.IgnoreFriends,
+        TargetTeams = Settings.TargetTeams,
+        Keybinds = Settings.Keybinds,
+        Whitelist = Settings.Whitelist
+    }
+    local success, encoded = pcall(HttpService.JSONEncode, HttpService, configToSave)
     if success then
         local success2, err = pcall(writefile, CONFIG_PATH, encoded)
         if not success2 then
@@ -76,6 +94,8 @@ local function LoadConfig()
                     for bind, keyCode in pairs(value) do
                         Settings.Keybinds[bind] = keyCode
                     end
+                elseif key == "Whitelist" then
+                    Settings.Whitelist = value
                 else
                     Settings[key] = value
                 end
@@ -86,10 +106,94 @@ local function LoadConfig()
     return false
 end
 
-local function IsKeyPressed(key)
-    if key == "None" then return false end
-    return UserInputService:IsKeyDown(Enum.KeyCode[key])
+local function GetUniqueTeams()
+    local teams = {}
+    for _, team in pairs(game:GetService("Teams"):GetTeams()) do
+        if team.Name ~= "Neutral" then
+            teams[team.Name] = true
+        end
+    end
+    for _, player in pairs(Players:GetPlayers()) do
+        if not player.Team then
+            teams["No Team"] = true
+        elseif player.Team.Name ~= "Neutral" then
+            teams[player.Team.Name] = true
+        end
+    end
+    return teams
 end
+
+local TargetTab = Window:CreateTab("Target", 4483362458)
+local targetSection = TargetTab:CreateSection("Teams")
+
+local function RebuildTeamToggles()
+    for _, toggle in pairs(TeamToggles) do
+        toggle:Destroy()
+    end
+    TeamToggles = {}
+    
+    local teams = GetUniqueTeams()
+    local teamNames = {}
+    for name, _ in pairs(teams) do
+        table.insert(teamNames, name)
+    end
+    table.sort(teamNames)
+    
+    targetSection:Destroy()
+    targetSection = TargetTab:CreateSection("Teams")
+    
+    for _, name in ipairs(teamNames) do
+        if Settings.TargetTeams[name] == nil then
+            Settings.TargetTeams[name] = true
+        end
+        local toggle = TargetTab:CreateToggle({
+            Name = name,
+            CurrentValue = Settings.TargetTeams[name],
+            Flag = "TargetTeam_" .. name,
+            Callback = function(Value)
+                Settings.TargetTeams[name] = Value
+                SaveConfig()
+            end
+        })
+        TeamToggles[name] = toggle
+    end
+end
+
+RebuildTeamToggles()
+
+Players.PlayerAdded:Connect(function()
+    RebuildTeamToggles()
+end)
+
+Players.PlayerRemoving:Connect(function()
+    RebuildTeamToggles()
+end)
+
+local function OnTeamChanged(player)
+    RebuildTeamToggles()
+end
+
+for _, player in pairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        player:GetPropertyChangedSignal("Team"):Connect(function()
+            OnTeamChanged(player)
+        end)
+    end
+end
+
+Players.PlayerAdded:Connect(function(player)
+    if player ~= LocalPlayer then
+        player:GetPropertyChangedSignal("Team"):Connect(function()
+            OnTeamChanged(player)
+        end)
+    end
+end)
+
+task.spawn(function()
+    while task.wait(10) do
+        RebuildTeamToggles()
+    end
+end)
 
 local AimTab = Window:CreateTab("Aimbot", 4483362458)
 
@@ -153,18 +257,35 @@ AimTab:CreateDropdown({
 
 local KeybindsTab = Window:CreateTab("Keybinds", 4483362458)
 
-local keyOptions = {"None", "LeftShift", "RightShift", "LeftControl", "RightControl", "LeftAlt", "RightAlt", "F", "R", "Q", "E", "X", "C", "V", "L", "M", "G", "H", "J", "K", "Z", "Y", "U", "I", "O", "P", "B", "N"}
-
-KeybindsTab:CreateDropdown({
+local aimbotKeybind = KeybindsTab:CreateKeybind({
     Name = "Toggle Aimbot Key",
-    Options = keyOptions,
-    CurrentOption = "None",
+    CurrentKeybind = Settings.Keybinds.ToggleAimbot or "None",
+    HoldToInteract = false,
     Flag = "Keybind_ToggleAimbot",
-    Callback = function(Option)
-        Settings.Keybinds.ToggleAimbot = Option
-        SaveConfig()
+    Callback = function(Keybind)
     end
 })
+
+local oldSet = aimbotKeybind.Set
+aimbotKeybind.Set = function(self, newKey)
+    oldSet(self, newKey)
+    Settings.Keybinds.ToggleAimbot = newKey
+    SaveConfig()
+end
+
+local oldCallback = aimbotKeybind.Callback
+aimbotKeybind.Callback = function(Keybind)
+    if Settings.Keybinds.ToggleAimbot ~= "None" then
+        Settings.Enabled = not Settings.Enabled
+        Toggle:Set(Settings.Enabled)
+        SaveConfig()
+        Rayfield:Notify({
+            Title = "Aimbot",
+            Content = Settings.Enabled and "Enabled" or "Disabled",
+            Duration = 1
+        })
+    end
+end
 
 local FiltersTab = Window:CreateTab("Filters", 4483362458)
 
@@ -218,54 +339,11 @@ FiltersTab:CreateToggle({
     end
 })
 
-local TargetTab = Window:CreateTab("Target", 4483362458)
-
-local function GetUniqueTeams()
-    local teams = {}
-    for _, player in pairs(Players:GetPlayers()) do
-        if player.Team then
-            local teamName = player.Team.Name
-            if teamName ~= "Neutral" then
-                teams[teamName] = true
-            end
-        else
-            teams["No Team"] = true
-        end
-    end
-    return teams
-end
-
-local function BuildTeamToggles()
-    local teams = GetUniqueTeams()
-    local teamNames = {}
-    for name, _ in pairs(teams) do
-        table.insert(teamNames, name)
-    end
-    table.sort(teamNames)
-
-    for _, name in ipairs(teamNames) do
-        if Settings.TargetTeams[name] == nil then
-            Settings.TargetTeams[name] = true
-        end
-        TargetTab:CreateToggle({
-            Name = name,
-            CurrentValue = Settings.TargetTeams[name],
-            Flag = "TargetTeam_" .. name,
-            Callback = function(Value)
-                Settings.TargetTeams[name] = Value
-                SaveConfig()
-            end
-        })
-    end
-end
-
-BuildTeamToggles()
-
 local WhitelistTab = Window:CreateTab("Whitelist", 4483362458)
 
 local function RefreshWhitelistDisplay()
     local playerList = {}
-    for i, userId in ipairs(WhitelistIds) do
+    for i, userId in ipairs(Settings.Whitelist) do
         local player = Players:FindFirstChild(tostring(userId))
         if player then
             table.insert(playerList, string.format("%s (%d)", player.DisplayName, userId))
@@ -274,13 +352,13 @@ local function RefreshWhitelistDisplay()
         end
     end
     local displayText = #playerList > 0 and table.concat(playerList, ", ") or "Empty"
-    print(string.format("Whitelist [%d]: %s", #WhitelistIds, displayText))
+    print(string.format("Whitelist [%d]: %s", #Settings.Whitelist, displayText))
 end
 
 local function IsInWhitelist(player)
     local userId = player.UserId
-    for i = 1, #WhitelistIds do
-        if WhitelistIds[i] == userId then
+    for i = 1, #Settings.Whitelist do
+        if Settings.Whitelist[i] == userId then
             return true
         end
     end
@@ -297,8 +375,9 @@ WhitelistTab:CreateInput({
                 if player.Name:lower() == Input:lower() or player.DisplayName:lower() == Input:lower() then
                     local userId = player.UserId
                     if not IsInWhitelist(player) then
-                        table.insert(WhitelistIds, userId)
+                        table.insert(Settings.Whitelist, userId)
                         RefreshWhitelistDisplay()
+                        SaveConfig()
                         Rayfield:Notify({
                             Title = "Whitelist",
                             Content = string.format("Added %s", player.DisplayName),
@@ -347,8 +426,9 @@ WhitelistTab:CreateButton({
             end
         else
             if removeAllTimer and (tick() - removeAllTimer) < 5 then
-                WhitelistIds = {}
+                Settings.Whitelist = {}
                 RefreshWhitelistDisplay()
+                SaveConfig()
                 Rayfield:Notify({
                     Title = "Whitelist",
                     Content = "All players removed from whitelist",
@@ -363,15 +443,16 @@ WhitelistTab:CreateButton({
 
 local function CleanWhitelist()
     local validIds = {}
-    for i = 1, #WhitelistIds do
-        local userId = WhitelistIds[i]
+    for i = 1, #Settings.Whitelist do
+        local userId = Settings.Whitelist[i]
         if Players:FindFirstChild(tostring(userId)) then
             table.insert(validIds, userId)
         end
     end
-    WhitelistIds = validIds
-    if #WhitelistIds ~= #validIds then
+    Settings.Whitelist = validIds
+    if #Settings.Whitelist ~= #validIds then
         RefreshWhitelistDisplay()
+        SaveConfig()
     end
 end
 
@@ -549,28 +630,17 @@ local function GetBestTarget(targets)
     return targets[1]
 end
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode then
-        local keyName = tostring(input.KeyCode)
-        if Settings.Keybinds.ToggleAimbot == keyName then
-            Settings.Enabled = not Settings.Enabled
-            Toggle:Set(Settings.Enabled)
-            SaveConfig()
-            Rayfield:Notify({
-                Title = "Aimbot",
-                Content = Settings.Enabled and "Enabled" or "Disabled",
-                Duration = 1
-            })
-        end
-    end
-end)
-
 LoadConfig()
 
 if Settings.Enabled then
     Toggle:Set(true)
 end
+
+if Settings.Keybinds.ToggleAimbot and Settings.Keybinds.ToggleAimbot ~= "None" then
+    aimbotKeybind:Set(Settings.Keybinds.ToggleAimbot)
+end
+
+RefreshWhitelistDisplay()
 
 RunService.RenderStepped:Connect(function()
     if Settings.ShowFOV and Settings.Enabled then
