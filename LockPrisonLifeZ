@@ -1,0 +1,275 @@
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "Bad",
+    LoadingTitle = "Bad",
+    LoadingSubtitle = "Are you a furry?",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "AimZ",
+        FileName = "Aim"
+    },
+    ShowText = "Rayfield",
+    Theme = "Default"
+})
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local Settings = {
+    Enabled = false,
+    FOV = 150,
+    Smoothness = 0.2,
+    ShowFOV = true,
+    WallCheck = false,
+    TeamCheck = false,
+    CircleThickness = 2,
+    MaxDistance = 200,
+    Priority = "Closest to Center"  -- "Closest to Center", "Lowest Health", "Highest Health"
+}
+
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Color = Color3.fromRGB(0, 255, 255)
+FOVCircle.Thickness = Settings.CircleThickness
+FOVCircle.Transparency = 0.5
+FOVCircle.Radius = Settings.FOV
+FOVCircle.Filled = false
+FOVCircle.Visible = false
+FOVCircle.ZIndex = 0
+
+local AimTab = Window:CreateTab("Aimbot", 4483362458)
+
+local Toggle = AimTab:CreateToggle({
+    Name = "Enable Aimbot",
+    CurrentValue = false,
+    Callback = function(Value)
+        Settings.Enabled = Value
+    end
+})
+
+AimTab:CreateSlider({
+    Name = "FOV Radius",
+    Range = {50, 500},
+    Increment = 10,
+    CurrentValue = 150,
+    Callback = function(Value)
+        Settings.FOV = Value
+        if FOVCircle then FOVCircle.Radius = Value end
+    end
+})
+
+AimTab:CreateSlider({
+    Name = "Max Distance",
+    Range = {50, 1000},
+    Increment = 10,
+    CurrentValue = 200,
+    Callback = function(Value)
+        Settings.MaxDistance = Value
+    end
+})
+
+AimTab:CreateSlider({
+    Name = "Smoothness",
+    Range = {0.05, 1},
+    Increment = 0.05,
+    CurrentValue = 0.2,
+    Callback = function(Value)
+        Settings.Smoothness = Value
+    end
+})
+
+AimTab:CreateDropdown({
+    Name = "Target Priority",
+    Options = {"Closest to Center", "Lowest Health", "Highest Health"},
+    CurrentOption = "Closest to Center",
+    Callback = function(Option)
+        Settings.Priority = Option
+    end
+})
+
+AimTab:CreateToggle({
+    Name = "Show FOV Circle",
+    CurrentValue = true,
+    Callback = function(Value)
+        Settings.ShowFOV = Value
+    end
+})
+
+AimTab:CreateToggle({
+    Name = "Wall Check",
+    CurrentValue = false,
+    Callback = function(Value)
+        Settings.WallCheck = Value
+    end
+})
+
+AimTab:CreateToggle({
+    Name = "Team Check",
+    CurrentValue = false,
+    Callback = function(Value)
+        Settings.TeamCheck = Value
+    end
+})
+
+local VisualsTab = Window:CreateTab("Visuals", 4483362458)
+
+VisualsTab:CreateSlider({
+    Name = "Circle Thickness",
+    Range = {1, 10},
+    Increment = 1,
+    CurrentValue = 2,
+    Callback = function(Value)
+        Settings.CircleThickness = Value
+        if FOVCircle then FOVCircle.Thickness = Value end
+    end
+})
+
+local UnloadTab = Window:CreateTab("Unload", 4483362458)
+
+local unloadCooldown = false
+local unloadTimer = nil
+
+UnloadTab:CreateButton({
+    Name = "Unload (Double-Click to Confirm)",
+    Callback = function()
+        if not unloadCooldown then
+            unloadCooldown = true
+            Rayfield:Notify({
+                Title = "Unload",
+                Content = "Click again within 5 seconds to confirm.",
+                Duration = 5
+            })
+            unloadTimer = tick()
+            task.wait(5)
+            if unloadTimer and (tick() - unloadTimer) >= 5 then
+                unloadCooldown = false
+                unloadTimer = nil
+            end
+        else
+            if unloadTimer and (tick() - unloadTimer) < 5 then
+                Settings.Enabled = false
+                Toggle:Set(false)
+                if FOVCircle then FOVCircle.Visible = false end
+                Rayfield:Destroy()
+                for _, v in pairs(getconnections(RunService.RenderStepped)) do
+                    v:Disable()
+                end
+                game:GetService("CoreGui"):FindFirstChild("Rayfield"):Destroy()
+            end
+        end
+    end
+})
+
+local function GetTargets()
+    local targets = {}
+    local center = Camera.ViewportSize / 2
+    local myTeam = LocalPlayer.Team
+    local teamCheck = Settings.TeamCheck
+    local wallCheck = Settings.WallCheck
+    local players = Players:GetPlayers()
+    local myChar = LocalPlayer.Character
+    local maxDist = Settings.MaxDistance
+    local fov = Settings.FOV
+    local targetPartName = "Head"
+
+    for i = 1, #players do
+        local player = players[i]
+        if player == LocalPlayer then continue end
+        
+        local character = player.Character
+        if not character then continue end
+        
+        local humanoid = character:FindFirstChild("Humanoid")
+        if not humanoid or humanoid.Health <= 0 then continue end  -- Ignorar mortos
+
+        -- Ignorar equipe Neutral
+        if player.Team and player.Team.Name == "Neutral" then
+            continue
+        end
+
+        if teamCheck and player.Team == myTeam then
+            continue
+        end
+
+        -- Inmates filter
+        if player.Team and player.Team.Name == "Inmates" then
+            local punched = character:GetAttribute("PunchedSomeone") or false
+            local hostile = character:GetAttribute("Hostile") or false
+            local equipped = character:GetAttribute("EquipedHostileTool") or false
+            local trespass = character:GetAttribute("Trespassing") or false
+            if not (punched or hostile or equipped or trespass) then
+                continue
+            end
+        end
+
+        local targetPart = character:FindFirstChild(targetPartName)
+        if not targetPart then continue end
+
+        -- Distância máxima
+        local distance = (Camera.CFrame.Position - targetPart.Position).Magnitude
+        if distance > maxDist then continue end
+
+        if wallCheck and myChar then
+            local origin = Camera.CFrame.Position
+            local direction = (targetPart.Position - origin).Unit * 1000
+            local ray = Ray.new(origin, direction)
+            local hit = workspace:FindPartOnRay(ray, myChar)
+            if hit and not hit:IsDescendantOf(character) then
+                continue
+            end
+        end
+
+        local pos, onScreen = Camera:WorldToScreenPoint(targetPart.Position)
+        if not onScreen then continue end
+
+        local distToCenter = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+        if distToCenter > fov then continue end
+
+        table.insert(targets, {
+            player = player,
+            character = character,
+            targetPart = targetPart,
+            distance = distance,
+            distToCenter = distToCenter,
+            health = humanoid.Health
+        })
+    end
+    return targets
+end
+
+local function GetBestTarget(targets)
+    if #targets == 0 then return nil end
+
+    local priority = Settings.Priority
+    if priority == "Closest to Center" then
+        table.sort(targets, function(a, b) return a.distToCenter < b.distToCenter end)
+    elseif priority == "Lowest Health" then
+        table.sort(targets, function(a, b) return a.health < b.health end)
+    elseif priority == "Highest Health" then
+        table.sort(targets, function(a, b) return a.health > b.health end)
+    end
+    return targets[1]
+end
+
+RunService.RenderStepped:Connect(function()
+    if Settings.ShowFOV and Settings.Enabled then
+        FOVCircle.Visible = true
+        FOVCircle.Position = Camera.ViewportSize / 2
+        FOVCircle.Radius = Settings.FOV
+    else
+        FOVCircle.Visible = false
+    end
+
+    if not Settings.Enabled then return end
+
+    local targets = GetTargets()
+    local best = GetBestTarget(targets)
+    if best then
+        local current = Camera.CFrame
+        local lookAt = CFrame.lookAt(current.Position, best.targetPart.Position)
+        local smooth = Settings.Smoothness
+        Camera.CFrame = current:Lerp(lookAt, smooth)
+    end
+end)
