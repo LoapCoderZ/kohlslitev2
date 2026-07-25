@@ -30,12 +30,11 @@ local Settings = {
     TeamCheck = false,
     InmatesFilter = true,
     IgnoreForceField = false,
-    IgnoreFriends = false
+    IgnoreFriends = false,
+    TargetTeams = {}
 }
 
-local Whitelist = {}
 local WhitelistIds = {}
-
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Color = Color3.fromRGB(0, 255, 255)
 FOVCircle.Thickness = Settings.CircleThickness
@@ -137,6 +136,45 @@ FiltersTab:CreateToggle({
     end
 })
 
+local TargetTab = Window:CreateTab("Target", 4483362458)
+
+local function GetUniqueTeams()
+    local teams = {}
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Team then
+            local teamName = player.Team.Name or "No Team"
+            teams[teamName] = true
+        else
+            teams["No Team"] = true
+        end
+    end
+    return teams
+end
+
+local function BuildTeamToggles()
+    local teams = GetUniqueTeams()
+    local teamNames = {}
+    for name, _ in pairs(teams) do
+        table.insert(teamNames, name)
+    end
+    table.sort(teamNames)
+
+    for _, name in ipairs(teamNames) do
+        if Settings.TargetTeams[name] == nil then
+            Settings.TargetTeams[name] = true
+        end
+        TargetTab:CreateToggle({
+            Name = name,
+            CurrentValue = Settings.TargetTeams[name],
+            Callback = function(Value)
+                Settings.TargetTeams[name] = Value
+            end
+        })
+    end
+end
+
+BuildTeamToggles()
+
 local WhitelistTab = Window:CreateTab("Whitelist", 4483362458)
 
 local function RefreshWhitelistDisplay()
@@ -202,6 +240,9 @@ WhitelistTab:CreateInput({
     end
 })
 
+local removeAllCooldown = false
+local removeAllTimer = nil
+
 WhitelistTab:CreateButton({
     Name = "Remove All (Double-Click to Confirm)",
     Callback = function()
@@ -233,9 +274,6 @@ WhitelistTab:CreateButton({
         end
     end
 })
-
-local removeAllCooldown = false
-local removeAllTimer = nil
 
 local function CleanWhitelist()
     local validIds = {}
@@ -322,6 +360,7 @@ local function GetTargets()
     local inmatesFilter = Settings.InmatesFilter
     local ignoreForceField = Settings.IgnoreForceField
     local ignoreFriends = Settings.IgnoreFriends
+    local targetTeams = Settings.TargetTeams
 
     CleanWhitelist()
 
@@ -335,7 +374,9 @@ local function GetTargets()
         local humanoid = character:FindFirstChild("Humanoid")
         if not humanoid or humanoid.Health <= 0 then continue end
 
-        if player.Team and player.Team.Name == "Neutral" then
+        local teamName = player.Team and player.Team.Name or "No Team"
+
+        if teamName == "Neutral" then
             continue
         end
 
@@ -343,7 +384,11 @@ local function GetTargets()
             continue
         end
 
-        if inmatesFilter and player.Team and player.Team.Name == "Inmates" then
+        if targetTeams[teamName] == false then
+            continue
+        end
+
+        if inmatesFilter and teamName == "Inmates" then
             local punched = character:GetAttribute("PunchedSomeone") or false
             local hostile = character:GetAttribute("Hostile") or false
             local equipped = character:GetAttribute("EquipedHostileTool") or false
