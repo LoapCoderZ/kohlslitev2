@@ -86,9 +86,25 @@ local function LoadConfig()
     return false
 end
 
-local function IsKeyPressed(key)
-    if key == "None" then return false end
-    return UserInputService:IsKeyDown(Enum.KeyCode[key])
+local keyOptions = {
+    "None", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+    "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
+    "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Zero",
+    "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
+    "LeftShift", "RightShift", "LeftControl", "RightControl", "LeftAlt", "RightAlt",
+    "LeftCommand", "RightCommand", "LeftMeta", "RightMeta",
+    "Tab", "CapsLock", "Space", "Enter", "Backspace", "Delete", "Insert",
+    "Home", "End", "PageUp", "PageDown",
+    "Up", "Down", "Left", "Right",
+    "NumLock", "Keypad0", "Keypad1", "Keypad2", "Keypad3", "Keypad4",
+    "Keypad5", "Keypad6", "Keypad7", "Keypad8", "Keypad9",
+    "KeypadPlus", "KeypadMinus", "KeypadMultiply", "KeypadDivide", "KeypadEnter",
+    "Period", "Comma", "Slash", "Backslash", "Semicolon", "Quote", "LeftBracket", "RightBracket", "Tilde"
+}
+
+local function GetEnumKeyFromName(name)
+    if name == "None" then return nil end
+    return Enum.KeyCode[name]
 end
 
 local AimTab = Window:CreateTab("Aimbot", 4483362458)
@@ -148,12 +164,12 @@ AimTab:CreateDropdown({
 
 local KeybindsTab = Window:CreateTab("Keybinds", 4483362458)
 
-KeybindsTab:CreateKeybind({
+KeybindsTab:CreateDropdown({
     Name = "Toggle Aimbot Key",
-    CurrentKeybind = Settings.Keybinds.ToggleAimbot or "None",
-    Flag = "ToggleAimbotKey",
-    Callback = function(Keybind)
-        Settings.Keybinds.ToggleAimbot = Keybind
+    Options = keyOptions,
+    CurrentOption = Settings.Keybinds.ToggleAimbot or "None",
+    Callback = function(Option)
+        Settings.Keybinds.ToggleAimbot = Option
         SaveConfig()
     end
 })
@@ -556,7 +572,7 @@ end
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
-    if input.KeyCode then
+    if input.UserInputType == Enum.UserInputType.Keyboard then
         local keyName = tostring(input.KeyCode)
         local bindKey = Settings.Keybinds.ToggleAimbot
         if bindKey ~= "None" and keyName == bindKey then
