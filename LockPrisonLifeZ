@@ -142,8 +142,11 @@ local function GetUniqueTeams()
     local teams = {}
     for _, player in pairs(Players:GetPlayers()) do
         if player.Team then
-            local teamName = player.Team.Name or "No Team"
-            teams[teamName] = true
+            local teamName = player.Team.Name
+            -- Always exclude Neutral
+            if teamName ~= "Neutral" then
+                teams[teamName] = true
+            end
         else
             teams["No Team"] = true
         end
@@ -376,6 +379,7 @@ local function GetTargets()
 
         local teamName = player.Team and player.Team.Name or "No Team"
 
+        -- NEVER target Neutral
         if teamName == "Neutral" then
             continue
         end
@@ -384,6 +388,7 @@ local function GetTargets()
             continue
         end
 
+        -- Check if this team is enabled in Target tab
         if targetTeams[teamName] == false then
             continue
         end
