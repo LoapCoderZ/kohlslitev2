@@ -148,8 +148,6 @@ AimTab:CreateDropdown({
 
 local KeybindsTab = Window:CreateTab("Keybinds", 4483362458)
 
-local keyOptions = {"None", "LeftShift", "RightShift", "LeftControl", "RightControl", "LeftAlt", "RightAlt", "F", "R", "Q", "E", "X", "C", "V", "L", "M", "G", "H", "J", "K", "Z", "Y", "U", "I", "O", "P", "B", "N"}
-
 KeybindsTab:CreateKeybind({
     Name = "Toggle Aimbot Key",
     CurrentKeybind = Settings.Keybinds.ToggleAimbot or "None",
@@ -560,7 +558,8 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode then
         local keyName = tostring(input.KeyCode)
-        if Settings.Keybinds.ToggleAimbot == keyName then
+        local bindKey = Settings.Keybinds.ToggleAimbot
+        if bindKey ~= "None" and keyName == bindKey then
             Settings.Enabled = not Settings.Enabled
             Toggle:Set(Settings.Enabled)
             SaveConfig()
