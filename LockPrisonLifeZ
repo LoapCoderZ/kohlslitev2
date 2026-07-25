@@ -1,4 +1,4 @@
-local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Rayfield/main/source"))()
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
 local Window = Rayfield:CreateWindow({
     Name = "Bad",
@@ -101,11 +101,6 @@ local keyOptions = {
     "KeypadPlus", "KeypadMinus", "KeypadMultiply", "KeypadDivide", "KeypadEnter",
     "Period", "Comma", "Slash", "Backslash", "Semicolon", "Quote", "LeftBracket", "RightBracket", "Tilde"
 }
-
-local function GetEnumKeyFromName(name)
-    if name == "None" then return nil end
-    return Enum.KeyCode[name]
-end
 
 local AimTab = Window:CreateTab("Aimbot", 4483362458)
 
