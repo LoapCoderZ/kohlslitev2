@@ -5,7 +5,7 @@ local Window = Rayfield:CreateWindow({
     LoadingTitle = "Bad",
     LoadingSubtitle = "Are you a furry?",
     ConfigurationSaving = {
-        Enabled = false
+        Enabled = true
     },
     ShowText = "Rayfield",
     Theme = "Default"
@@ -30,9 +30,12 @@ local Settings = {
     Priority = "Closest to Center",
     WallCheck = false,
     TeamCheck = false,
-    InmatesFilter = true,
     IgnoreForceField = false,
     IgnoreFriends = false,
+    FocusPunchedSomeone = true,
+    FocusHostile = true,
+    FocusEquipedHostileTool = true,
+    FocusTrespassing = true,
     TargetTeams = {
         Guards = true,
         Inmates = true,
@@ -80,6 +83,8 @@ local function LoadConfig()
                     for bind, keyCode in pairs(value) do
                         Settings.Keybinds[bind] = keyCode
                     end
+                elseif key == "WhitelistIds" then
+                    WhitelistIds = value
                 else
                     Settings[key] = value
                 end
@@ -193,16 +198,6 @@ FiltersTab:CreateToggle({
 })
 
 FiltersTab:CreateToggle({
-    Name = "Inmates Attribute Filter",
-    CurrentValue = true,
-    Flag = "InmatesFilter",
-    Callback = function(Value)
-        Settings.InmatesFilter = Value
-        SaveConfig()
-    end
-})
-
-FiltersTab:CreateToggle({
     Name = "Ignore ForceField",
     CurrentValue = false,
     Flag = "IgnoreForceField",
@@ -218,6 +213,48 @@ FiltersTab:CreateToggle({
     Flag = "IgnoreFriends",
     Callback = function(Value)
         Settings.IgnoreFriends = Value
+        SaveConfig()
+    end
+})
+
+local InmatesTab = Window:CreateTab("Inmates", 4483362458)
+
+local FocusPunchedToggle = InmatesTab:CreateToggle({
+    Name = "Focus PunchedSomeone",
+    CurrentValue = true,
+    Flag = "FocusPunchedSomeone",
+    Callback = function(Value)
+        Settings.FocusPunchedSomeone = Value
+        SaveConfig()
+    end
+})
+
+local FocusHostileToggle = InmatesTab:CreateToggle({
+    Name = "Focus Hostile",
+    CurrentValue = true,
+    Flag = "FocusHostile",
+    Callback = function(Value)
+        Settings.FocusHostile = Value
+        SaveConfig()
+    end
+})
+
+local FocusEquippedToggle = InmatesTab:CreateToggle({
+    Name = "Focus EquipedHostileTool",
+    CurrentValue = true,
+    Flag = "FocusEquipedHostileTool",
+    Callback = function(Value)
+        Settings.FocusEquipedHostileTool = Value
+        SaveConfig()
+    end
+})
+
+local FocusTrespassToggle = InmatesTab:CreateToggle({
+    Name = "Focus Trespassing",
+    CurrentValue = true,
+    Flag = "FocusTrespassing",
+    Callback = function(Value)
+        Settings.FocusTrespassing = Value
         SaveConfig()
     end
 })
@@ -274,6 +311,7 @@ WhitelistTab:CreateInput({
                     local userId = player.UserId
                     if not IsInWhitelist(player) then
                         table.insert(WhitelistIds, userId)
+                        SaveConfig()
                         RefreshWhitelistDisplay()
                         Rayfield:Notify({
                             Title = "Whitelist",
@@ -324,6 +362,7 @@ WhitelistTab:CreateButton({
         else
             if removeAllTimer and (tick() - removeAllTimer) < 5 then
                 WhitelistIds = {}
+                SaveConfig()
                 RefreshWhitelistDisplay()
                 Rayfield:Notify({
                     Title = "Whitelist",
@@ -424,10 +463,13 @@ local function GetTargets()
     local maxDist = Settings.MaxDistance
     local fov = Settings.FOV
     local targetPartName = "Head"
-    local inmatesFilter = Settings.InmatesFilter
     local ignoreForceField = Settings.IgnoreForceField
     local ignoreFriends = Settings.IgnoreFriends
     local targetTeams = Settings.TargetTeams
+    local focusPunched = Settings.FocusPunchedSomeone
+    local focusHostile = Settings.FocusHostile
+    local focusEquipped = Settings.FocusEquipedHostileTool
+    local focusTrespass = Settings.FocusTrespassing
 
     CleanWhitelist()
 
@@ -455,12 +497,19 @@ local function GetTargets()
             continue
         end
 
-        if inmatesFilter and teamName == "Inmates" then
+        if teamName == "Inmates" then
             local punched = character:GetAttribute("PunchedSomeone") or false
             local hostile = character:GetAttribute("Hostile") or false
             local equipped = character:GetAttribute("EquipedHostileTool") or false
             local trespass = character:GetAttribute("Trespassing") or false
-            if not (punched or hostile or equipped or trespass) then
+            
+            local hasFocus = false
+            if focusPunched and punched then hasFocus = true end
+            if focusHostile and hostile then hasFocus = true end
+            if focusEquipped and equipped then hasFocus = true end
+            if focusTrespass and trespass then hasFocus = true end
+            
+            if not hasFocus then
                 continue
             end
         end
