@@ -5,7 +5,7 @@ local Window = Rayfield:CreateWindow({
     LoadingTitle = "Bad",
     LoadingSubtitle = "Are you a furry?",
     ConfigurationSaving = {
-        Enabled = true
+        Enabled = false
     },
     ShowText = "Rayfield",
     Theme = "Default"
@@ -47,6 +47,7 @@ local Settings = {
 }
 
 local WhitelistIds = {}
+local GuiToggles = {}
 
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Color = Color3.fromRGB(0, 255, 255)
@@ -100,6 +101,56 @@ local function IsKeyPressed(key)
     return UserInputService:IsKeyDown(Enum.KeyCode[key])
 end
 
+local function UpdateGuiToggles()
+    for flag, toggle in pairs(GuiToggles) do
+        if Settings[flag] ~= nil then
+            toggle:Set(Settings[flag])
+        end
+    end
+    if GuiToggles["Enabled"] then
+        GuiToggles["Enabled"]:Set(Settings.Enabled)
+    end
+    if GuiToggles["ShowFOV"] then
+        GuiToggles["ShowFOV"]:Set(Settings.ShowFOV)
+    end
+    if GuiToggles["WallCheck"] then
+        GuiToggles["WallCheck"]:Set(Settings.WallCheck)
+    end
+    if GuiToggles["TeamCheck"] then
+        GuiToggles["TeamCheck"]:Set(Settings.TeamCheck)
+    end
+    if GuiToggles["IgnoreForceField"] then
+        GuiToggles["IgnoreForceField"]:Set(Settings.IgnoreForceField)
+    end
+    if GuiToggles["IgnoreFriends"] then
+        GuiToggles["IgnoreFriends"]:Set(Settings.IgnoreFriends)
+    end
+    if GuiToggles["FocusPunchedSomeone"] then
+        GuiToggles["FocusPunchedSomeone"]:Set(Settings.FocusPunchedSomeone)
+    end
+    if GuiToggles["FocusHostile"] then
+        GuiToggles["FocusHostile"]:Set(Settings.FocusHostile)
+    end
+    if GuiToggles["FocusEquipedHostileTool"] then
+        GuiToggles["FocusEquipedHostileTool"]:Set(Settings.FocusEquipedHostileTool)
+    end
+    if GuiToggles["FocusTrespassing"] then
+        GuiToggles["FocusTrespassing"]:Set(Settings.FocusTrespassing)
+    end
+    if GuiToggles["Priority"] then
+        GuiToggles["Priority"]:Set(Settings.Priority)
+    end
+    if GuiToggles["Keybind_ToggleAimbot"] then
+        GuiToggles["Keybind_ToggleAimbot"]:Set(Settings.Keybinds.ToggleAimbot)
+    end
+    for team, enabled in pairs(Settings.TargetTeams) do
+        local flag = "TargetTeam_" .. team
+        if GuiToggles[flag] then
+            GuiToggles[flag]:Set(enabled)
+        end
+    end
+end
+
 local AimTab = Window:CreateTab("Aimbot", 4483362458)
 
 local Toggle = AimTab:CreateToggle({
@@ -111,6 +162,7 @@ local Toggle = AimTab:CreateToggle({
         SaveConfig()
     end
 })
+GuiToggles["Enabled"] = Toggle
 
 AimTab:CreateSlider({
     Name = "FOV Radius",
@@ -149,7 +201,7 @@ AimTab:CreateSlider({
     end
 })
 
-AimTab:CreateDropdown({
+local PriorityDropdown = AimTab:CreateDropdown({
     Name = "Target Priority",
     Options = {"Closest to Center", "Lowest Health", "Highest Health"},
     CurrentOption = "Closest to Center",
@@ -159,12 +211,13 @@ AimTab:CreateDropdown({
         SaveConfig()
     end
 })
+GuiToggles["Priority"] = PriorityDropdown
 
 local KeybindsTab = Window:CreateTab("Keybinds", 4483362458)
 
 local keyOptions = {"None", "LeftShift", "RightShift", "LeftControl", "RightControl", "LeftAlt", "RightAlt", "F", "R", "Q", "E", "X", "C", "V", "L", "M", "G", "H", "J", "K", "Z", "Y", "U", "I", "O", "P", "B", "N"}
 
-KeybindsTab:CreateDropdown({
+local KeybindDropdown = KeybindsTab:CreateDropdown({
     Name = "Toggle Aimbot Key",
     Options = keyOptions,
     CurrentOption = "None",
@@ -174,10 +227,11 @@ KeybindsTab:CreateDropdown({
         SaveConfig()
     end
 })
+GuiToggles["Keybind_ToggleAimbot"] = KeybindDropdown
 
 local FiltersTab = Window:CreateTab("Filters", 4483362458)
 
-FiltersTab:CreateToggle({
+local WallCheckToggle = FiltersTab:CreateToggle({
     Name = "Wall Check",
     CurrentValue = false,
     Flag = "WallCheck",
@@ -186,8 +240,9 @@ FiltersTab:CreateToggle({
         SaveConfig()
     end
 })
+GuiToggles["WallCheck"] = WallCheckToggle
 
-FiltersTab:CreateToggle({
+local TeamCheckToggle = FiltersTab:CreateToggle({
     Name = "Team Check",
     CurrentValue = false,
     Flag = "TeamCheck",
@@ -196,8 +251,9 @@ FiltersTab:CreateToggle({
         SaveConfig()
     end
 })
+GuiToggles["TeamCheck"] = TeamCheckToggle
 
-FiltersTab:CreateToggle({
+local IgnoreForceFieldToggle = FiltersTab:CreateToggle({
     Name = "Ignore ForceField",
     CurrentValue = false,
     Flag = "IgnoreForceField",
@@ -206,8 +262,9 @@ FiltersTab:CreateToggle({
         SaveConfig()
     end
 })
+GuiToggles["IgnoreForceField"] = IgnoreForceFieldToggle
 
-FiltersTab:CreateToggle({
+local IgnoreFriendsToggle = FiltersTab:CreateToggle({
     Name = "Ignore Friends",
     CurrentValue = false,
     Flag = "IgnoreFriends",
@@ -216,6 +273,7 @@ FiltersTab:CreateToggle({
         SaveConfig()
     end
 })
+GuiToggles["IgnoreFriends"] = IgnoreFriendsToggle
 
 local InmatesTab = Window:CreateTab("Inmates", 4483362458)
 
@@ -228,6 +286,7 @@ local FocusPunchedToggle = InmatesTab:CreateToggle({
         SaveConfig()
     end
 })
+GuiToggles["FocusPunchedSomeone"] = FocusPunchedToggle
 
 local FocusHostileToggle = InmatesTab:CreateToggle({
     Name = "Focus Hostile",
@@ -238,6 +297,7 @@ local FocusHostileToggle = InmatesTab:CreateToggle({
         SaveConfig()
     end
 })
+GuiToggles["FocusHostile"] = FocusHostileToggle
 
 local FocusEquippedToggle = InmatesTab:CreateToggle({
     Name = "Focus EquipedHostileTool",
@@ -248,6 +308,7 @@ local FocusEquippedToggle = InmatesTab:CreateToggle({
         SaveConfig()
     end
 })
+GuiToggles["FocusEquipedHostileTool"] = FocusEquippedToggle
 
 local FocusTrespassToggle = InmatesTab:CreateToggle({
     Name = "Focus Trespassing",
@@ -258,12 +319,13 @@ local FocusTrespassToggle = InmatesTab:CreateToggle({
         SaveConfig()
     end
 })
+GuiToggles["FocusTrespassing"] = FocusTrespassToggle
 
 local TargetTab = Window:CreateTab("Target", 4483362458)
 
 local teamNames = {"Guards", "Inmates", "Criminals"}
 for _, teamName in ipairs(teamNames) do
-    TargetTab:CreateToggle({
+    local toggle = TargetTab:CreateToggle({
         Name = teamName,
         CurrentValue = Settings.TargetTeams[teamName] ~= false,
         Flag = "TargetTeam_" .. teamName,
@@ -272,6 +334,7 @@ for _, teamName in ipairs(teamNames) do
             SaveConfig()
         end
     })
+    GuiToggles["TargetTeam_" .. teamName] = toggle
 end
 
 local WhitelistTab = Window:CreateTab("Whitelist", 4483362458)
@@ -392,7 +455,7 @@ end
 
 local VisualsTab = Window:CreateTab("Visuals", 4483362458)
 
-VisualsTab:CreateToggle({
+local ShowFOVToggle = VisualsTab:CreateToggle({
     Name = "Show FOV Circle",
     CurrentValue = true,
     Flag = "ShowFOV",
@@ -401,6 +464,7 @@ VisualsTab:CreateToggle({
         SaveConfig()
     end
 })
+GuiToggles["ShowFOV"] = ShowFOVToggle
 
 VisualsTab:CreateSlider({
     Name = "Circle Thickness",
@@ -591,7 +655,11 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
-LoadConfig()
+local configLoaded = LoadConfig()
+
+if configLoaded then
+    UpdateGuiToggles()
+end
 
 if Settings.Enabled then
     Toggle:Set(true)
